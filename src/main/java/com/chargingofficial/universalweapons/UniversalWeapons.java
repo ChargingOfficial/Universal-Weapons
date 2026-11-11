@@ -42,16 +42,16 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private static final long DASH_COOLDOWN_MS = 1_800L;
     private static final long GRAPPLE_COOLDOWN_MS = 3_500L;
     private static final double GRAPPLE_RANGE = 24.0;
-    private static final double BONUS_HIT_DAMAGE = 6.0;
+    private static final double BONUS_HIT_DAMAGE = 20.0;
     private static final double SLAM_DAMAGE = 5.0;
     private static final double SLAM_MIN_FALL_DISTANCE = 3.0;
-    private static final long DOUBLE_STRIKE_DELAY_TICKS = 2L;
+    private static final long DOUBLE_STRIKE_DELAY_TICKS = 1L;
 
     private NamespacedKey weaponKey;
     private final Map<UUID, Integer> hitCounts = new HashMap<>();
     private final Map<UUID, Long> dashReadyAt = new HashMap<>();
     private final Map<UUID, Long> grappleReadyAt = new HashMap<>();
-    private final Set<UUID> abilityDamageInProgress = new HashSet<>();
+    private final Set<UUID> abilityDamageInProgress = new HashSet<>();\n    private final Set<UUID> grapplingPlayers = new HashSet<>();
 
     @Override
     public void onEnable() {
@@ -71,7 +71,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         hitCounts.clear();
         dashReadyAt.clear();
         grappleReadyAt.clear();
-        abilityDamageInProgress.clear();
+        abilityDamageInProgress.clear();\n        grapplingPlayers.clear();
     }
 
     private ItemStack createCalamity() {
@@ -151,22 +151,32 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
         dashReadyAt.put(id, now + DASH_COOLDOWN_MS);
         Vector direction = player.getLocation().getDirection().normalize();
-        Vector velocity = direction.clone().multiply(1.65);
-        velocity.setY(Math.max(0.28, velocity.getY()));
+        Vector velocity = direction.clone().multiply(1.75);
+        velocity.setY(Math.max(0.30, velocity.getY()));
         player.setVelocity(velocity);
 
         World world = player.getWorld();
         Location origin = player.getLocation().add(0, 1, 0);
-        world.playSound(origin, Sound.ENTITY_ENDERMAN_TELEPORT, 0.8f, 0.65f);
+        world.playSound(origin, Sound.ENTITY_ENDERMAN_TELEPORT, 0.9f, 0.6f);
+        world.spawnParticle(Particle.DRAGON_BREATH, origin, 30, 0.35, 0.3, 0.35, 0.04);
 
-        // A short particle wake follows the direction of the dash.
-        Vector trailDirection = direction.clone().multiply(-1);
-        for (int i = 0; i < 8; i++) {
-            Location point = origin.clone().add(trailDirection.clone().multiply(i * 0.32));
-            world.spawnParticle(Particle.PORTAL, point, 7, 0.16, 0.22, 0.16, 0.08);
-            world.spawnParticle(Particle.END_ROD, point, 2, 0.08, 0.10, 0.08, 0.01);
-        }
-        world.spawnParticle(Particle.DRAGON_BREATH, origin, 24, 0.35, 0.3, 0.35, 0.035);
+        // Emit a moving wake for several ticks so the trail follows the player's dash.
+        final int[] ticks = {0};
+        Bukkit.getScheduler().runTaskTimer(this, task -> {
+            if (!player.isOnline() || !player.isValid() || ticks[0]++ >= 7) {
+                task.cancel();
+                return;
+            }
+            Location trail = player.getLocation().add(0, 0.9, 0);
+            Vector behind = player.getVelocity().clone();
+            if (behind.lengthSquared() > 0.001) {
+                behind.normalize().multiply(-0.65);
+            }
+            Location point = trail.add(behind);
+            world.spawnParticle(Particle.PORTAL, point, 12, 0.22, 0.28, 0.22, 0.08);
+            world.spawnParticle(Particle.END_ROD, point, 4, 0.12, 0.18, 0.12, 0.01);
+            world.spawnParticle(Particle.DRAGON_BREATH, point, 5, 0.18, 0.16, 0.18, 0.015);
+        }, 0L, 1L);
     }
 
     private void grapple(Player player) {
@@ -176,6 +186,10 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             player.sendActionBar(ChatColor.DARK_PURPLE + "Void Grapple is recharging.");
             return;
         }
+        if (grapplingPlayers.contains(id)) {
+            player.sendActionBar(ChatColor.LIGHT_PURPLE + "Void Grapple is already pulling you in.");
+            return;
+        }
 
         Location eye = player.getEyeLocation();
         RayTraceResult trace = player.getWorld().rayTraceEntities(
@@ -183,27 +197,70 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 entity -> entity instanceof Player && entity != player
         );
         if (trace == null || !(trace.getHitEntity() instanceof Player target)) {
-            player.sendMessage(ChatColor.RED + "Aim at a player within 24 blocks to grapple.");
+            player.sendMessage(ChatColor.RED + "Aim at an enemy player within 24 blocks to grapple.");
             return;
         }
 
-        Vector pull = target.getLocation().toVector().subtract(player.getLocation().toVector());
-        if (pull.lengthSquared() < 0.01) {
+        if (!player.getWorld().equals(target.getWorld())) {
             return;
         }
 
         grappleReadyAt.put(id, now + GRAPPLE_COOLDOWN_MS);
-        drawParticleChain(player.getEyeLocation(), target.getEyeLocation());
-        Vector pullVelocity = pull.normalize().multiply(1.55);
-        pullVelocity.setY(Math.max(0.18, pullVelocity.getY() + 0.18));
-        player.setVelocity(pullVelocity);
+        grapplingPlayers.add(id);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_FISHING_BOBBER_THROW, 1.0f, 0.7f);
+        player.sendActionBar(ChatColor.LIGHT_PURPLE + "VOID GRAPPLE!");
 
-        World world = target.getWorld();
-        Location targetEffect = target.getLocation().add(0, 1, 0);
-        world.spawnParticle(Particle.PORTAL, targetEffect, 24, 0.45, 0.6, 0.45, 0.15);
-        world.playSound(player.getLocation(), Sound.ENTITY_FISHING_BOBBER_RETRIEVE, 1.0f, 0.65f);
-        damageFromAbility(player, target, 8.0);
-        world.spawnParticle(Particle.CRIT, targetEffect, 18, 0.35, 0.45, 0.35, 0.15);
+        // Continuously reel the caster in, render the tether, and strike once in range.
+        final int[] elapsed = {0};
+        Bukkit.getScheduler().runTaskTimer(this, task -> {
+            if (!player.isOnline() || !player.isValid() || !target.isValid() || target.isDead()
+                    || !target.isOnline() || !player.getWorld().equals(target.getWorld())
+                    || elapsed[0]++ >= 50) {
+                grapplingPlayers.remove(id);
+                task.cancel();
+                if (player.isOnline()) {
+                    player.setFallDistance(0);
+                }
+                return;
+            }
+
+            Location playerEye = player.getEyeLocation();
+            Location targetEye = target.getEyeLocation();
+            drawParticleChain(playerEye, targetEye);
+
+            Vector toTarget = target.getLocation().toVector().subtract(player.getLocation().toVector());
+            double distance = toTarget.length();
+            if (distance <= 2.7) {
+                grapplingPlayers.remove(id);
+                task.cancel();
+
+                Vector facing = target.getLocation().toVector().subtract(player.getLocation().toVector());
+                if (facing.lengthSquared() > 0.001) {
+                    player.setVelocity(new Vector(0, Math.max(0, player.getVelocity().getY()), 0));
+                    Location look = player.getLocation();
+                    look.setDirection(facing);
+                    player.teleport(look);
+                }
+
+                // The grapple's finishing strike is a real, separate damage event.
+                player.swingMainHand();
+                target.setNoDamageTicks(0);
+                damageFromAbility(player, target, 8.0);
+                Location impact = target.getLocation().add(0, 1, 0);
+                World world = target.getWorld();
+                world.spawnParticle(Particle.SWEEP_ATTACK, impact, 1);
+                world.spawnParticle(Particle.CRIT, impact, 24, 0.35, 0.45, 0.35, 0.12);
+                world.spawnParticle(Particle.DRAGON_BREATH, impact, 18, 0.3, 0.4, 0.3, 0.025);
+                world.playSound(impact, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.65f);
+                return;
+            }
+
+            Vector pull = toTarget.normalize().multiply(Math.min(1.45, 0.55 + distance * 0.045));
+            pull.setY(Math.max(-0.15, Math.min(0.55, pull.getY() + 0.12)));
+            player.setVelocity(pull);
+            player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 0.8, 0),
+                    5, 0.22, 0.3, 0.22, 0.04);
+        }, 0L, 1L);
     }
 
     private void drawParticleChain(Location from, Location to) {
@@ -298,4 +355,42 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             abilityDamageInProgress.remove(id);
         }
     }
-}
+}    @EventHandler
+    public void onMaceHit(EntityDamageByEntityEvent event) {
+        if (event.isCancelled()
+                || !(event.getDamager() instanceof Player player)
+                || !(event.getEntity() instanceof LivingEntity victim)
+                || !isCalamity(player.getInventory().getItemInMainHand())
+                || abilityDamageInProgress.contains(player.getUniqueId())) {
+            return;
+        }
+
+        int hits = hitCounts.merge(player.getUniqueId(), 1, Integer::sum);
+        if (hits % 3 != 0) {
+            return;
+        }
+
+        player.sendActionBar(ChatColor.LIGHT_PURPLE + "CALAMITY: DOUBLE STRIKE!");
+        // Reset the victim's vanilla hurt cooldown before the follow-up so it is
+        // processed as a second damage event, even one tick after the first hit.
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            if (!player.isOnline() || !victim.isValid() || victim.isDead()
+                    || !player.getWorld().equals(victim.getWorld())) {
+                return;
+            }
+
+            player.swingMainHand();
+            victim.setNoDamageTicks(0);
+            damageFromAbility(player, victim, BONUS_HIT_DAMAGE);
+
+            Location hitLocation = victim.getLocation().add(0, 1, 0);
+            World world = victim.getWorld();
+            world.spawnParticle(Particle.SWEEP_ATTACK, hitLocation, 1);
+            world.spawnParticle(Particle.DRAGON_BREATH, hitLocation,
+                    30, 0.35, 0.45, 0.35, 0.03);
+            world.spawnParticle(Particle.CRIT, hitLocation, 18, 0.3, 0.4, 0.3, 0.12);
+            world.playSound(hitLocation, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.55f);
+        }, DOUBLE_STRIKE_DELAY_TICKS);
+    }
+
+
