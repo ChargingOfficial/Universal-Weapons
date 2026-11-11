@@ -17,9 +17,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.block.Block;
-import org.bukkit.block.TileState;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -86,8 +83,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 ChatColor.GRAY + "A relic consumed by the void.",
                 ChatColor.LIGHT_PURPLE + "Right-click: " + ChatColor.WHITE + "Corrupted Dash",
                 ChatColor.LIGHT_PURPLE + "Sneak + right-click: " + ChatColor.WHITE + "Void Grapple",
-                ChatColor.DARK_PURPLE + "Every third hit triggers an immediate second strike.",
-                ChatColor.LIGHT_PURPLE + "Kill Strike: " + ChatColor.WHITE + "Executes targets with exactly one Totem."
+                ChatColor.DARK_PURPLE + "Every third hit triggers an immediate second strike."
         ));
         meta.setCustomModelData(11001);
         meta.addEnchant(org.bukkit.enchantments.Enchantment.DENSITY, 5, true);
@@ -223,8 +219,10 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         world.playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 1.0f, 0.8f);
         player.sendActionBar(ChatColor.LIGHT_PURPLE + "VOID GRAPPLE!");
 
-        // Start with a quick but controlled pull. Horizontal momentum is retained all
-        // the way through the target approach; the grapple must never brake to a stop.
+        // Show the tether once at activation. It is intentionally not redrawn while
+        // either player moves, preventing a long trail of duplicated particle lines.
+        drawParticleChain(player.getEyeLocation(), target.getEyeLocation());
+
         Vector initial = target.getLocation().toVector().subtract(player.getLocation().toVector());
         initial.setY(0);
         if (initial.lengthSquared() > 0.001) initial.normalize().multiply(0.68);
@@ -232,9 +230,11 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         player.setFallDistance(0);
 
         final int[] elapsed = {0};
-        final boolean[] attacked = {false};
+        final double[] previousDistance = {
+                player.getLocation().distance(target.getLocation())
+        };
         Bukkit.getScheduler().runTaskTimer(this, task -> {
-            if (attacked[0] || !player.isOnline() || !player.isValid()
+            if (!player.isOnline() || !player.isValid()
                     || !target.isValid() || target.isDead() || !target.isOnline()
                     || !player.getWorld().equals(target.getWorld()) || elapsed[0]++ >= 60) {
                 grapplingPlayers.remove(id);
@@ -242,28 +242,27 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 return;
             }
 
-            // Render one short-lived tether update every 3 ticks. Drawing a dense
-            // line every tick leaves overlapping particle trails behind a moving caster.
-            if (elapsed[0] % 3 == 0) {
-                drawParticleChain(player.getEyeLocation(), target.getEyeLocation());
-                world.spawnParticle(Particle.PORTAL, player.getLocation().add(0, 0.8, 0),
-                        3, 0.12, 0.16, 0.12, 0.015);
+            double distance = player.getLocation().distance(target.getLocation());
+
+            // Once the player reaches the target's position and begins moving past it,
+            // stop steering immediately. Keep the player's current velocity so the
+            // grapple ends smoothly instead of abruptly freezing them in midair.
+            if (distance <= 1.8 || (elapsed[0] > 2 && distance > previousDistance[0] + 0.12)) {
+                grapplingPlayers.remove(id);
+                task.cancel();
+                return;
             }
+            previousDistance[0] = distance;
 
             Vector offset = target.getLocation().toVector().subtract(player.getLocation().toVector());
-            double distance = offset.length();
             Vector current = player.getVelocity();
-
-            // Steer horizontally toward the target, with a lower speed cap as the
-            // player enters attack range. Preserve vertical velocity/fall distance so
-            // the mace's smash calculation is not interrupted.
             Vector horizontal = new Vector(offset.getX(), 0, offset.getZ());
             double horizontalDistance = horizontal.length();
+
             if (horizontalDistance > 0.12) {
                 horizontal.normalize();
                 double desiredSpeed = horizontalDistance > 8.0 ? 0.78
-                        : horizontalDistance > 4.0 ? 0.58
-                        : 0.32;
+                        : horizontalDistance > 4.0 ? 0.58 : 0.32;
                 Vector desired = horizontal.multiply(desiredSpeed);
                 Vector blended = new Vector(
                         current.getX() * 0.18 + desired.getX() * 0.82,
@@ -271,40 +270,17 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         current.getZ() * 0.18 + desired.getZ() * 0.82
                 );
                 double maxSpeed = horizontalDistance > 4.0 ? 0.82 : 0.42;
-                double speed = Math.sqrt(blended.getX() * blended.getX() + blended.getZ() * blended.getZ());
+                double speed = Math.sqrt(blended.getX() * blended.getX()
+                        + blended.getZ() * blended.getZ());
                 if (speed > maxSpeed) {
                     blended.setX(blended.getX() / speed * maxSpeed);
                     blended.setZ(blended.getZ() / speed * maxSpeed);
                 }
                 player.setVelocity(blended);
             } else {
-                // At point-blank horizontal range, preserve existing horizontal drift
-                // instead of zeroing it; gravity and the falling mace approach continue.
-                player.setVelocity(new Vector(current.getX() * 0.92, current.getY(), current.getZ() * 0.92));
-            }
-
-            boolean smashReady = player.getVelocity().getY() < -0.12
-                    && player.getFallDistance() >= 1.5f;
-            // Actual melee reach is close to 3 blocks. Attack only inside 2.7 blocks
-            // so Player.attack() cannot whiff from the old 3.8-5 block trigger.
-            if (distance <= 2.7 && smashReady) {
-                attacked[0] = true;
-                grapplingPlayers.remove(id);
-                task.cancel();
-                player.swingMainHand();
-                player.attack(target);
-                Location impact = target.getLocation().add(0, 1, 0);
-                world.spawnParticle(Particle.CRIT, impact, 28, 0.35, 0.45, 0.35, 0.12);
-                world.spawnParticle(Particle.DRAGON_BREATH, impact, 22, 0.3, 0.4, 0.3, 0.025);
-                world.playSound(impact, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.6f);
-            } else if (distance <= 2.7 && elapsed[0] >= 45) {
-                // In low ceilings, do not keep the player circling indefinitely.
-                // The close-range normal attack still works, though it may not be a smash.
-                attacked[0] = true;
-                grapplingPlayers.remove(id);
-                task.cancel();
-                player.swingMainHand();
-                player.attack(target);
+                player.setVelocity(new Vector(
+                        current.getX() * 0.92, current.getY(), current.getZ() * 0.92
+                ));
             }
         }, 1L, 1L);
     }
@@ -337,14 +313,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             return;
         }
 
-        // Kill Strike replaces the old Ground Shatter. Exactly one Totem in the
-        // victim's inventory/hands is not enough to survive this execution.
-        if (victim instanceof Player target && countTotems(target) == 1) {
-            event.setCancelled(true);
-            executeKillStrike(player, target);
-            return;
-        }
-
         int hits = hitCounts.merge(player.getUniqueId(), 1, Integer::sum);
         if (hits % 3 != 0) {
             return;
@@ -373,119 +341,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             world.spawnParticle(Particle.CRIT, hitLocation, 24, 0.3, 0.4, 0.3, 0.14);
             world.playSound(hitLocation, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.55f);
         });
-    }
-
-    private int countTotems(Player player) {
-        int count = 0;
-        for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && item.getType() == Material.TOTEM_OF_UNDYING) count += item.getAmount();
-        }
-        for (ItemStack item : player.getInventory().getArmorContents()) {
-            if (item != null && item.getType() == Material.TOTEM_OF_UNDYING) count += item.getAmount();
-        }
-        ItemStack offhand = player.getInventory().getItemInOffHand();
-        if (offhand.getType() == Material.TOTEM_OF_UNDYING) count += offhand.getAmount();
-        ItemStack cursor = player.getItemOnCursor();
-        if (cursor != null && cursor.getType() == Material.TOTEM_OF_UNDYING) count += cursor.getAmount();
-        return count;
-    }
-
-    private void executeKillStrike(Player holder, Player victim) {
-        Location deathLocation = victim.getLocation().clone();
-        World world = deathLocation.getWorld();
-
-        world.playSound(deathLocation, Sound.ENTITY_GENERIC_EXPLODE, 1.2f, 0.65f);
-        world.playSound(deathLocation, Sound.ENTITY_WITHER_DEATH, 0.7f, 1.35f);
-        world.spawnParticle(Particle.EXPLOSION, deathLocation.clone().add(0, 1, 0), 2);
-        world.spawnParticle(Particle.BLOCK, deathLocation, 110, 1.8, 0.5, 1.8, 0.2,
-                Material.CRYING_OBSIDIAN.createBlockData());
-        world.spawnParticle(Particle.DRAGON_BREATH, deathLocation, 85, 1.5, 0.6, 1.5, 0.045);
-        world.spawnParticle(Particle.PORTAL, deathLocation, 100, 1.8, 0.8, 1.8, 0.25);
-
-        carveKillStrikeCrater(holder, deathLocation);
-
-        // Direct lethal health assignment bypasses the victim's final Totem activation.
-        victim.setHealth(0.0);
-
-        // Shockwave damages nearby entities/players, but never the mace holder.
-        for (Entity entity : world.getNearbyEntities(deathLocation, 6.0, 4.0, 6.0)) {
-            if (!(entity instanceof LivingEntity nearby) || nearby == holder || nearby == victim
-                    || nearby.isDead()) {
-                continue;
-            }
-            abilityDamageInProgress.add(holder.getUniqueId());
-            try {
-                nearby.damage(8.0, holder);
-            } finally {
-                abilityDamageInProgress.remove(holder.getUniqueId());
-            }
-        }
-
-        holder.sendActionBar(ChatColor.DARK_PURPLE + "KILL STRIKE!");
-    }
-
-    private void carveKillStrikeCrater(Player holder, Location center) {
-        World world = center.getWorld();
-        int centerX = center.getBlockX();
-        int centerY = center.getBlockY() - 1;
-        int centerZ = center.getBlockZ();
-
-        // Find the surface beneath the death point, including airborne kills.
-        int floorY = Integer.MIN_VALUE;
-        for (int y = centerY; y >= Math.max(world.getMinHeight(), centerY - 12); y--) {
-            Block block = world.getBlockAt(centerX, y, centerZ);
-            if (isShatterable(block)) {
-                floorY = y;
-                break;
-            }
-        }
-        if (floorY == Integer.MIN_VALUE) return;
-
-        // Wide bowl-shaped blast crater (11x11 footprint). The center is excavated
-        // deepest, with progressively shallower rings to create a visible impact bowl.
-        // Blocks are set to air without drops; this does not touch entity death loot.
-        for (int x = -5; x <= 5; x++) {
-            for (int z = -5; z <= 5; z++) {
-                double radius = Math.sqrt(x * x + z * z);
-                if (radius > 5.25) continue;
-
-                int depth = radius <= 1.4 ? 4
-                        : radius <= 2.7 ? 3
-                        : radius <= 4.1 ? 2 : 1;
-
-                for (int layer = 0; layer < depth; layer++) {
-                    Block block = world.getBlockAt(centerX + x, floorY - layer, centerZ + z);
-                    if (!isShatterable(block)) continue;
-
-                    BlockBreakEvent breakEvent = new BlockBreakEvent(block, holder);
-                    Bukkit.getPluginManager().callEvent(breakEvent);
-                    if (!breakEvent.isCancelled()) {
-                        block.setType(Material.AIR, false);
-                    }
-                }
-            }
-        }
-
-        // Clear a little headroom above the rim's inner rings so the impact reads as
-        // a crater rather than a narrow hole, without touching containers/tile entities.
-        for (int x = -3; x <= 3; x++) {
-            for (int z = -3; z <= 3; z++) {
-                if (Math.sqrt(x * x + z * z) > 3.4) continue;
-                Block above = world.getBlockAt(centerX + x, floorY + 1, centerZ + z);
-                if (isShatterable(above)) {
-                    BlockBreakEvent breakEvent = new BlockBreakEvent(above, holder);
-                    Bukkit.getPluginManager().callEvent(breakEvent);
-                    if (!breakEvent.isCancelled()) above.setType(Material.AIR, false);
-                }
-            }
-        }
-    }
-
-    private boolean isShatterable(Block block) {
-        Material type = block.getType();
-        return !type.isAir() && type.isSolid() && !(block.getState() instanceof TileState)
-                && type != Material.BEDROCK && type != Material.BARRIER
-                && type != Material.END_PORTAL_FRAME && type != Material.REINFORCED_DEEPSLATE;
     }
 
     @EventHandler
