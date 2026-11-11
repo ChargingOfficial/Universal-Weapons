@@ -55,6 +55,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private final Set<UUID> abilityDamageInProgress = new HashSet<>();
     private final Set<UUID> grapplingPlayers = new HashSet<>();
     private final Map<UUID, BukkitTask> ritualTasks = new HashMap<>();
+    private final Map<UUID, Location> ritualBlocks = new HashMap<>();
 
     @Override
     public void onEnable() {
@@ -87,6 +88,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         grapplingPlayers.clear();
         for (BukkitTask task : ritualTasks.values()) task.cancel();
         ritualTasks.clear();
+        ritualBlocks.clear();
     }
 
     private ItemStack createCalamity() {
@@ -113,38 +115,57 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         return item;
     }
 
+    private Location getRitualBlock(Player player) {
+        Location feet = player.getLocation();
+        Block beneath = feet.getBlock().getRelative(BlockFace.DOWN);
+        Material type = beneath.getType();
+        if (type != Material.COMMAND_BLOCK
+                && type != Material.CHAIN_COMMAND_BLOCK
+                && type != Material.REPEATING_COMMAND_BLOCK) {
+            return null;
+        }
+        return beneath.getLocation();
+    }
+
     private boolean isRitualReady(Player player) {
-        Block beneath = player.getLocation().getBlock().getRelative(BlockFace.DOWN);
-        Material blockType = beneath.getType();
-        boolean commandBlock = blockType == Material.COMMAND_BLOCK
-                || blockType == Material.CHAIN_COMMAND_BLOCK
-                || blockType == Material.REPEATING_COMMAND_BLOCK;
-        if (!commandBlock) return false;
+        if (!player.isOnline() || !player.isValid() || player.isDead()) return false;
+        if (getRitualBlock(player) == null) return false;
 
         ItemStack held = player.getInventory().getItemInMainHand();
-        if (held == null || held.getType() != Material.MACE || !held.hasItemMeta()) return false;
-        ItemMeta meta = held.getItemMeta();
-        return meta.hasDisplayName()
-                && "Calamity".equals(ChatColor.stripColor(meta.getDisplayName()));
+        if (held.getType() != Material.MACE || !held.hasItemMeta()) return false;
+        String name = held.getItemMeta().getDisplayName();
+        return name != null && "Calamity".equalsIgnoreCase(ChatColor.stripColor(name).trim());
     }
 
     private void beginCalamityRitual(Player player) {
         UUID id = player.getUniqueId();
+        Location ritualBlock = getRitualBlock(player);
+        if (ritualBlock == null) return;
+
+        ritualBlocks.put(id, ritualBlock.clone());
         player.sendMessage(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD
                 + "The command block begins to resonate...");
-        player.sendActionBar(ChatColor.LIGHT_PURPLE + "The Calamity ritual has begun. Do not move.");
+        player.sendActionBar(ChatColor.LIGHT_PURPLE + "The Calamity ritual has begun. Stay still.");
 
         World world = player.getWorld();
         final int[] tick = {0};
-        final Location center = player.getLocation().clone().add(0, 0.15, 0);
         BukkitTask task = Bukkit.getScheduler().runTaskTimer(this, scheduled -> {
-            if (!player.isOnline() || !player.isValid() || !isRitualReady(player)
-                    || !player.getWorld().equals(world)) {
+            Location currentBlock = getRitualBlock(player);
+            Location startingBlock = ritualBlocks.get(id);
+            boolean stillAtRitual = currentBlock != null && startingBlock != null
+                    && currentBlock.getWorld().equals(startingBlock.getWorld())
+                    && currentBlock.getBlockX() == startingBlock.getBlockX()
+                    && currentBlock.getBlockY() == startingBlock.getBlockY()
+                    && currentBlock.getBlockZ() == startingBlock.getBlockZ();
+
+            if (!isRitualReady(player) || !stillAtRitual || !player.getWorld().equals(world)) {
                 scheduled.cancel();
                 ritualTasks.remove(id);
+                ritualBlocks.remove(id);
                 if (player.isOnline()) {
                     player.sendActionBar(ChatColor.RED + "Ritual interrupted.");
-                    world.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.7f, 0.7f);
+                    player.getWorld().playSound(player.getLocation(),
+                            Sound.BLOCK_BEACON_DEACTIVATE, 0.7f, 0.7f);
                 }
                 return;
             }
@@ -155,13 +176,14 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             double angle = age * 0.22;
             for (int i = 0; i < 8; i++) {
                 double a = angle + (Math.PI * 2.0 * i / 8.0);
-                Location point = at.clone().add(Math.cos(a) * radius, 0.12 + (i % 2) * 0.08,
-                        Math.sin(a) * radius);
+                Location point = at.clone().add(Math.cos(a) * radius,
+                        0.12 + (i % 2) * 0.08, Math.sin(a) * radius);
                 world.spawnParticle(Particle.PORTAL, point, 3, 0.06, 0.08, 0.06, 0.01);
                 world.spawnParticle(Particle.WITCH, point, 1, 0.02, 0.02, 0.02, 0.0);
             }
             world.spawnParticle(Particle.DRAGON_BREATH, at.clone().add(0, 0.7, 0),
                     5, 0.35, 0.35, 0.35, 0.015);
+
             if (age % 10 == 0) {
                 world.playSound(at, Sound.BLOCK_BEACON_AMBIENT, 0.7f, 0.55f + age / 120.0f);
                 player.sendActionBar(ChatColor.LIGHT_PURPLE + "Corruption gathering "
@@ -171,8 +193,10 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             if (age >= 60) {
                 scheduled.cancel();
                 ritualTasks.remove(id);
-                ItemStack original = player.getInventory().getItemInMainHand();
-                if (!isRitualReady(player) || original.getAmount() < 1) {
+                ritualBlocks.remove(id);
+
+                // Re-check all requirements immediately before replacing the held item.
+                if (!isRitualReady(player)) {
                     player.sendActionBar(ChatColor.RED + "Ritual interrupted.");
                     return;
                 }
@@ -189,7 +213,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         ChatColor.LIGHT_PURPLE + "The Corrupted Calamity is yours",
                         10, 55, 20);
             }
-        }, 0L, 1L);
+        }, 1L, 1L);
         ritualTasks.put(id, task);
     }
 
@@ -503,8 +527,10 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         grapplingPlayers.remove(event.getPlayer().getUniqueId());
-        BukkitTask ritual = ritualTasks.remove(event.getPlayer().getUniqueId());
+        UUID playerId = event.getPlayer().getUniqueId();
+        BukkitTask ritual = ritualTasks.remove(playerId);
         if (ritual != null) ritual.cancel();
+        ritualBlocks.remove(playerId);
     }
 
     private void damageFromAbility(Player source, LivingEntity target, double damage) {
