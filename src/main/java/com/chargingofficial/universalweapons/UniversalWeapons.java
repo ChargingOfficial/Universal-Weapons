@@ -140,84 +140,97 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private void beginCalamityRitual(Player player) {
         UUID id = player.getUniqueId();
         Location ritualBlock = getRitualBlock(player);
-        if (ritualBlock == null) return;
+        if (ritualBlock == null || ritualTasks.containsKey(id)) return;
 
+        // Keep the exact block and world that started the ritual. The player must
+        // remain on this block and keep the original Calamity mace in their hand.
         ritualBlocks.put(id, ritualBlock.clone());
+        World world = player.getWorld();
         player.sendMessage(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD
                 + "The command block begins to resonate...");
-        player.sendActionBar(ChatColor.LIGHT_PURPLE + "The Calamity ritual has begun. Stay still.");
+        player.sendActionBar(ChatColor.LIGHT_PURPLE + "Calamity awakening: 0%");
 
-        World world = player.getWorld();
-        final int[] tick = {0};
-        BukkitRunnable ritualRunnable = new BukkitRunnable() {
+        BukkitRunnable ritual = new BukkitRunnable() {
+            private int elapsedTicks = 0;
+
             @Override
             public void run() {
-            Location currentBlock = getRitualBlock(player);
-            Location startingBlock = ritualBlocks.get(id);
-            boolean stillAtRitual = currentBlock != null && startingBlock != null
-                    && currentBlock.getWorld().equals(startingBlock.getWorld())
-                    && currentBlock.getBlockX() == startingBlock.getBlockX()
-                    && currentBlock.getBlockY() == startingBlock.getBlockY()
-                    && currentBlock.getBlockZ() == startingBlock.getBlockZ();
+                if (!player.isOnline() || !player.isValid() || player.isDead()
+                        || !player.getWorld().equals(world) || !isRitualReady(player)) {
+                    interrupt();
+                    return;
+                }
 
-            if (!isRitualReady(player) || !stillAtRitual || !player.getWorld().equals(world)) {
+                Location currentBlock = getRitualBlock(player);
+                Location originalBlock = ritualBlocks.get(id);
+                if (currentBlock == null || originalBlock == null
+                        || !currentBlock.getWorld().equals(originalBlock.getWorld())
+                        || currentBlock.getBlockX() != originalBlock.getBlockX()
+                        || currentBlock.getBlockY() != originalBlock.getBlockY()
+                        || currentBlock.getBlockZ() != originalBlock.getBlockZ()) {
+                    interrupt();
+                    return;
+                }
+
+                elapsedTicks++;
+                Location at = player.getLocation();
+                double angle = elapsedTicks * 0.22;
+                for (int i = 0; i < 8; i++) {
+                    double a = angle + (Math.PI * 2.0 * i / 8.0);
+                    Location point = at.clone().add(Math.cos(a) * 1.35,
+                            0.12 + (i % 2) * 0.08, Math.sin(a) * 1.35);
+                    world.spawnParticle(Particle.PORTAL, point, 3, 0.06, 0.08, 0.06, 0.01);
+                    world.spawnParticle(Particle.WITCH, point, 1, 0.02, 0.02, 0.02, 0.0);
+                }
+                world.spawnParticle(Particle.DRAGON_BREATH, at.clone().add(0, 0.7, 0),
+                        5, 0.35, 0.35, 0.35, 0.015);
+
+                if (elapsedTicks % 10 == 0) {
+                    int progress = Math.min(100, elapsedTicks * 100 / 60);
+                    world.playSound(at, Sound.BLOCK_BEACON_AMBIENT,
+                            0.7f, 0.55f + elapsedTicks / 120.0f);
+                    player.sendActionBar(ChatColor.LIGHT_PURPLE + "Corruption gathering "
+                            + ChatColor.DARK_PURPLE + "[" + progress + "%]");
+                }
+
+                if (elapsedTicks >= 60) {
+                    // Recheck the held item at the exact moment of transformation.
+                    if (!player.isOnline() || !isRitualReady(player)) {
+                        interrupt();
+                        return;
+                    }
+
+                    cancel();
+                    ritualTasks.remove(id);
+                    ritualBlocks.remove(id);
+                    player.getInventory().setItemInMainHand(createCalamity());
+
+                    Location burst = player.getLocation().add(0, 1, 0);
+                    world.spawnParticle(Particle.EXPLOSION, burst, 1);
+                    world.spawnParticle(Particle.DRAGON_BREATH, burst, 80, 0.8, 0.9, 0.8, 0.04);
+                    world.spawnParticle(Particle.PORTAL, burst, 140, 0.9, 0.8, 0.9, 0.18);
+                    world.spawnParticle(Particle.END_ROD, burst, 45, 0.55, 0.8, 0.55, 0.08);
+                    world.playSound(burst, Sound.BLOCK_BEACON_POWER_SELECT, 1.2f, 0.55f);
+                    world.playSound(burst, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.25f);
+                    player.sendTitle(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD + "CALAMITY AWAKENED",
+                            ChatColor.LIGHT_PURPLE + "The Corrupted Calamity is yours",
+                            10, 55, 20);
+                }
+            }
+
+            private void interrupt() {
                 cancel();
                 ritualTasks.remove(id);
                 ritualBlocks.remove(id);
                 if (player.isOnline()) {
-                    player.sendActionBar(ChatColor.RED + "Ritual interrupted.");
+                    player.sendActionBar(ChatColor.RED + "Ritual interrupted. Stay on the command block and keep Calamity in your main hand.");
                     player.getWorld().playSound(player.getLocation(),
                             Sound.BLOCK_BEACON_DEACTIVATE, 0.7f, 0.7f);
                 }
-                return;
-            }
-
-            int age = tick[0]++;
-            Location at = player.getLocation();
-            double radius = 1.35;
-            double angle = age * 0.22;
-            for (int i = 0; i < 8; i++) {
-                double a = angle + (Math.PI * 2.0 * i / 8.0);
-                Location point = at.clone().add(Math.cos(a) * radius,
-                        0.12 + (i % 2) * 0.08, Math.sin(a) * radius);
-                world.spawnParticle(Particle.PORTAL, point, 3, 0.06, 0.08, 0.06, 0.01);
-                world.spawnParticle(Particle.WITCH, point, 1, 0.02, 0.02, 0.02, 0.0);
-            }
-            world.spawnParticle(Particle.DRAGON_BREATH, at.clone().add(0, 0.7, 0),
-                    5, 0.35, 0.35, 0.35, 0.015);
-
-            if (age % 10 == 0) {
-                world.playSound(at, Sound.BLOCK_BEACON_AMBIENT, 0.7f, 0.55f + age / 120.0f);
-                player.sendActionBar(ChatColor.LIGHT_PURPLE + "Corruption gathering "
-                        + ChatColor.DARK_PURPLE + "[" + Math.min(100, (age * 100) / 60) + "%]");
-            }
-
-            if (age >= 60) {
-                cancel();
-                ritualTasks.remove(id);
-                ritualBlocks.remove(id);
-
-                // Re-check all requirements immediately before replacing the held item.
-                if (!isRitualReady(player)) {
-                    player.sendActionBar(ChatColor.RED + "Ritual interrupted.");
-                    return;
-                }
-
-                player.getInventory().setItemInMainHand(createCalamity());
-                Location burst = player.getLocation().add(0, 1, 0);
-                world.spawnParticle(Particle.EXPLOSION, burst, 1);
-                world.spawnParticle(Particle.DRAGON_BREATH, burst, 80, 0.8, 0.9, 0.8, 0.04);
-                world.spawnParticle(Particle.PORTAL, burst, 140, 0.9, 0.8, 0.9, 0.18);
-                world.spawnParticle(Particle.END_ROD, burst, 45, 0.55, 0.8, 0.55, 0.08);
-                world.playSound(burst, Sound.BLOCK_BEACON_POWER_SELECT, 1.2f, 0.55f);
-                world.playSound(burst, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.25f);
-                player.sendTitle(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD + "CALAMITY AWAKENED",
-                        ChatColor.LIGHT_PURPLE + "The Corrupted Calamity is yours",
-                        10, 55, 20);
-            }
             }
         };
-        BukkitTask task = ritualRunnable.runTaskTimer(this, 1L, 1L);
+
+        BukkitTask task = ritual.runTaskTimer(this, 1L, 1L);
         ritualTasks.put(id, task);
     }
 
