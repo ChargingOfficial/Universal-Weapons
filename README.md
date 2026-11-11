@@ -29,9 +29,9 @@ Use `/weapon` to receive the mace. It requires the `universalweapons.weapon` per
 | Ability | Input | Effect |
 |---|---|---|
 | Corrupted Dash | Right-click while holding the mace | Launches you in the direction you face with a dense purple particle ribbon that follows your movement. 1.8-second cooldown. |
-| Void Grapple | Sneak + right-click while looking at another player | Uses a controlled launch and smooth horizontal steering without stopping near the target. The particle tether updates every three ticks to reduce overlapping trails. Attacks only inside close melee reach while descending, preserving fall distance for a possible mace smash and Wind Burst activation. Uses a chain sound. 3.5-second cooldown. |
+| Void Grapple | Sneak + right-click while looking at another player | Shows one particle tether at activation, then pulls you toward the target with smooth horizontal steering. Steering stops when you reach or pass the target, without freezing your existing momentum. It does not perform an automatic mace hit. Uses a chain sound. 3.5-second cooldown. |
 | Double Strike | Every third qualifying mace hit | Performs a separate 20-damage follow-up on the next server tick, with the target's hurt cooldown reset so a second Totem can pop after the first hit. The attacker is never frozen and gravity or movement is not modified. |
-| Kill Strike | Hit a player carrying exactly one Totem of Undying | Instantly executes the target, carves a protected-event-aware bowl-shaped 11x11 crater without block drops or explosions, and damages nearby living entities while excluding the weapon holder. The victim's normal death drops remain intact. |
+
 
 Damage values are Minecraft damage points (2 points equal one full heart before armor and other mitigation).
 
@@ -92,6 +92,5 @@ README.md
 - Ability damage is guarded so it does not increment the regular-hit counter.
 - Double Strike does not alter gravity or velocity. It delivers its separate 20-damage follow-up on the next server tick and resets hurt immunity immediately before that hit.
 - `/stuck` is available to all players and force-restores gravity and clears residual velocity.
-- Grapple launches the player rapidly toward the target with a live particle tether and a falling attack arc. When close and descending, it calls Paper's actual melee attack method so the mace smash and Wind Burst enchantment can activate under normal fall conditions.
-- Kill Strike triggers when a direct Corrupted Calamity hit lands on a player carrying exactly one Totem of Undying across their inventory, armor slots, offhand, and cursor. It bypasses that final Totem and kills the target, carves a bowl-shaped 11x11 crater without spawning block drops, and damages nearby living entities except the weapon holder. Block-break events are fired so protection plugins can cancel individual terrain changes; tile entities and bedrock-like blocks are excluded.
+- Grapple launches the player toward the targeted player and displays its particle tether only once when activated. It steers toward the target until the player reaches or passes them, then ends the steering task while preserving current momentum. It never attacks automatically; the player must perform any melee hit themselves.
 - Test on a backup or staging server before deploying to a live server.
