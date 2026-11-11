@@ -29,9 +29,9 @@ Use `/weapon` to receive the mace. It requires the `universalweapons.weapon` per
 | Ability | Input | Effect |
 |---|---|---|
 | Corrupted Dash | Right-click while holding the mace | Launches you in the direction you face with a dense purple particle ribbon that follows your movement. 1.8-second cooldown. |
-| Void Grapple | Sneak + right-click while looking at another player | Maintains a visible particle tether while pulling you horizontally with a smooth arc and a gentle vertical guide, allowing gravity to create a more natural falling motion; then automatically swings and strikes once you are within 2.7 blocks. 3.5-second cooldown. |
-| Double Strike | Every third qualifying mace hit | Waits 6 ticks (0.3 seconds) before performing a distinct follow-up swing; the attacker is never frozen and their gravity or movement is not modified. The follow-up resets the target’s hurt cooldown and deals 20 damage as a separate damage event, allowing it to trigger a second Totem of Undying after the first hit consumes one. |
-| Ground Shatter | Hit an enemy with the mace | Triggers a small corrupted explosion at the target's feet, breaks a protected-event-aware 3x3-ish crater in ordinary terrain, and creates impact particles and sounds. |
+| Void Grapple | Sneak + right-click while looking at another player | Maintains a visible particle tether and reels you toward the target using smooth horizontal acceleration only. Your vertical velocity, gravity, and fall distance are left untouched so falling mace damage is preserved; no teleport or mid-air lift is applied. Automatically swings and strikes at close range. 3.5-second cooldown. |
+| Double Strike | Every third qualifying mace hit | Waits 10 ticks (0.5 seconds) before performing a distinct follow-up swing; the attacker is never frozen and their gravity or movement is not modified. The follow-up resets the target’s hurt cooldown and deals 20 damage as a separate damage event, allowing it to trigger a second Totem of Undying after the first hit consumes one. |
+| Ground Shatter | Hit an enemy with the mace | Triggers a small corrupted explosion at the target's feet, searches up to 6 blocks below the target for the ground, then breaks a protected-event-aware 3x3 crater in ordinary terrain, and creates impact particles and sounds. |
 
 Damage values are Minecraft damage points (2 points equal one full heart before armor and other mitigation).
 
@@ -90,8 +90,8 @@ README.md
 - The weapon is identified by a persistent data tag, not its display name.
 - Off-hand interaction events are ignored to prevent abilities firing twice.
 - Ability damage is guarded so it does not increment the regular-hit counter.
-- Double Strike does not alter gravity or velocity. It simply waits 6 ticks (0.3 seconds) before delivering its separate 20-damage follow-up hit.
+- Double Strike does not alter gravity or velocity. It simply waits 10 ticks (0.5 seconds) before delivering its separate 20-damage follow-up hit.
 - `/stuck` is available to all players and force-restores gravity, clears residual velocity, and cancels a pending Double Strike suspension timer.
-- Grapple continuously reels the player toward the target with a live particle tether and automatically performs a mace strike at close range.
-- Ground Shatter triggers on a mace hit, with a short per-attacker cooldown. It breaks a small crater in ordinary solid blocks while firing standard block-break events so protection plugins can cancel individual block breaks. Tile entities and bedrock-like blocks are excluded.
+- Grapple reels the player toward the target with smooth horizontal acceleration and a live particle tether. It never changes vertical velocity, gravity, fall distance, or teleports the player, preserving normal mace falling damage.
+- Ground Shatter triggers on a mace hit, with a short per-attacker cooldown. It searches up to six blocks below the target for the actual floor, then breaks a small crater in ordinary solid blocks while firing standard block-break events so protection plugins can cancel individual block breaks. Tile entities and bedrock-like blocks are excluded.
 - Test on a backup or staging server before deploying to a live server.
