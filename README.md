@@ -16,6 +16,10 @@ This is a standard Bukkit/Paper plugin, not a client mod. It will not run on a v
 
 Use `/weapon` to receive the mace. It requires the `universalweapons.weapon` permission, which is granted to operators by default. If your inventory is full, the item drops at your location. Use `/stuck` at any time to restore gravity and clear residual movement if an ability ever leaves you suspended.
 
+### Calamity awakening ritual
+
+Stand on a command block (regular, chain, or repeating) while holding a mace named **Calamity** in your main hand. The ritual channels for 3 seconds with rotating purple particles and sound effects. Stay on the command block and keep holding the mace until the ritual completes; moving away or switching items interrupts it. Completion transforms the mace into **Corrupted Calamity**.
+
 ### Built-in enchantments
 
 - Density V
