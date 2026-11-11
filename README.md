@@ -31,7 +31,7 @@ Use `/weapon` to receive the mace. It requires the `universalweapons.weapon` per
 | Corrupted Dash | Right-click while holding the mace | Launches you in the direction you face with a dense purple particle ribbon that follows your movement. 1.8-second cooldown. |
 | Void Grapple | Sneak + right-click while looking at another player | Shows one particle tether at activation, then pulls you toward the target with smooth horizontal steering. Steering stops when you reach or pass the target, without freezing your existing momentum. It does not perform an automatic mace hit. Uses a chain sound. 3.5-second cooldown. |
 | Double Strike | Every third qualifying mace hit | Performs a separate 20-damage follow-up on the next server tick, with the target's hurt cooldown reset so a second Totem can pop after the first hit. The attacker is never frozen and gravity or movement is not modified. |
-| Shield Shatter | Hit a player actively blocking with a shield | Completely removes the shield from the hand being used. The plugin also triggers a Wind Burst-style upward launch and gust effect using the mace's Wind Burst level, so the effect still occurs on shield-breaking hits. |
+| Shield Shatter | Hit a player actively blocking with a shield | Instantly breaks their shield and triggers a Wind Burst launch with a gust effect. |
 
 
 Damage values are Minecraft damage points (2 points equal one full heart before armor and other mitigation).
