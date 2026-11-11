@@ -175,7 +175,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 elapsedTicks++;
                 Location at = player.getLocation();
                 double angle = elapsedTicks * 0.16;
-                double intensity = 1.0 + (elapsedTicks / 120.0) * 0.8;
 
                 // Two fast rotating rings surround the player, one at their feet
                 // and another overhead, creating a layered corruption aura.
