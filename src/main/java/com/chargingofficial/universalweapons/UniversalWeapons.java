@@ -318,10 +318,18 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         // Un-cancel this shield-blocked damage so the mace impact still lands and
         // vanilla mace smash/Wind Burst processing can continue normally.
         if (victim instanceof Player target && target.isBlocking()) {
-            ItemStack activeItem = target.getActiveItem();
+            EquipmentSlot activeHand = target.getActiveItemHand();
+            ItemStack activeItem = activeHand == EquipmentSlot.HAND
+                    ? target.getInventory().getItemInMainHand()
+                    : target.getInventory().getItemInOffHand();
             if (activeItem != null && activeItem.getType() == Material.SHIELD) {
-                activeItem.setAmount(0);
+                if (activeHand == EquipmentSlot.HAND) {
+                    target.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
+                } else {
+                    target.getInventory().setItemInOffHand(new ItemStack(Material.AIR));
+                }
                 target.clearActiveItem();
+                target.broadcastSlotBreak(activeHand);
                 event.setCancelled(false);
                 target.getWorld().playSound(target.getLocation(), Sound.ITEM_SHIELD_BREAK, 1.0f, 0.85f);
                 target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
