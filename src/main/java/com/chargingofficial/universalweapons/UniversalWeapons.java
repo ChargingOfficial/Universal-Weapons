@@ -174,26 +174,51 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
                 elapsedTicks++;
                 Location at = player.getLocation();
-                double angle = elapsedTicks * 0.22;
-                for (int i = 0; i < 8; i++) {
-                    double a = angle + (Math.PI * 2.0 * i / 8.0);
-                    Location point = at.clone().add(Math.cos(a) * 1.35,
-                            0.12 + (i % 2) * 0.08, Math.sin(a) * 1.35);
-                    world.spawnParticle(Particle.PORTAL, point, 3, 0.06, 0.08, 0.06, 0.01);
-                    world.spawnParticle(Particle.WITCH, point, 1, 0.02, 0.02, 0.02, 0.0);
-                }
-                world.spawnParticle(Particle.DRAGON_BREATH, at.clone().add(0, 0.7, 0),
-                        5, 0.35, 0.35, 0.35, 0.015);
+                double angle = elapsedTicks * 0.16;
+                double intensity = 1.0 + (elapsedTicks / 120.0) * 0.8;
 
-                if (elapsedTicks % 10 == 0) {
-                    int progress = Math.min(100, elapsedTicks * 100 / 60);
+                // Two fast rotating rings surround the player, one at their feet
+                // and another overhead, creating a layered corruption aura.
+                for (int i = 0; i < 18; i++) {
+                    double a = angle + (Math.PI * 2.0 * i / 18.0);
+                    double x = Math.cos(a);
+                    double z = Math.sin(a);
+                    Location lower = at.clone().add(x * 1.55, 0.12, z * 1.55);
+                    Location upper = at.clone().add(x * 1.05, 2.05, z * 1.05);
+                    world.spawnParticle(Particle.PORTAL, lower, 3, 0.07, 0.05, 0.07, 0.08);
+                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, lower, 1, 0.025, 0.08, 0.025, 0.01);
+                    world.spawnParticle(Particle.DRAGON_BREATH, upper, 2, 0.04, 0.06, 0.04, 0.015);
+                    world.spawnParticle(Particle.ELECTRIC_SPARK, upper, 1, 0.025, 0.04, 0.025, 0.01);
+                }
+
+                // Twin rising spirals climb around the player like a dark-energy vortex.
+                for (int i = 0; i < 3; i++) {
+                    double spiral = angle * 1.7 + (Math.PI * 2.0 * i / 3.0);
+                    double height = ((elapsedTicks * 0.075) + (i * 0.66)) % 2.5;
+                    double radius = 0.55 + height * 0.22;
+                    Location vortex = at.clone().add(Math.cos(spiral) * radius,
+                            0.15 + height, Math.sin(spiral) * radius);
+                    world.spawnParticle(Particle.DRAGON_BREATH, vortex, 4, 0.10, 0.12, 0.10, 0.025);
+                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, vortex, 2, 0.06, 0.10, 0.06, 0.015);
+                    world.spawnParticle(Particle.PORTAL, vortex, 5, 0.12, 0.14, 0.12, 0.12);
+                }
+
+                world.spawnParticle(Particle.WITCH, at.clone().add(0, 1.0, 0),
+                        14, 0.48, 0.72, 0.48, 0.04);
+                world.spawnParticle(Particle.DRAGON_BREATH, at.clone().add(0, 1.0, 0),
+                        12, 0.42, 0.75, 0.42, 0.025);
+
+                if (elapsedTicks % 20 == 0) {
+                    int progress = Math.min(100, elapsedTicks * 100 / 120);
                     world.playSound(at, Sound.BLOCK_BEACON_AMBIENT,
-                            0.7f, 0.55f + elapsedTicks / 120.0f);
-                    player.sendActionBar(ChatColor.LIGHT_PURPLE + "Corruption gathering "
+                            1.0f, 0.45f + elapsedTicks / 120.0f);
+                    world.playSound(at, Sound.BLOCK_BEACON_POWER_SELECT,
+                            0.55f, 0.65f + elapsedTicks / 240.0f);
+                    player.sendActionBar(ChatColor.LIGHT_PURPLE + "CORRUPTION AWAKENING "
                             + ChatColor.DARK_PURPLE + "[" + progress + "%]");
                 }
 
-                if (elapsedTicks >= 60) {
+                if (elapsedTicks >= 120) {
                     // Recheck the held item at the exact moment of transformation.
                     if (!player.isOnline() || !isRitualReady(player)) {
                         interrupt();
@@ -207,9 +232,12 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
                     Location burst = player.getLocation().add(0, 1, 0);
                     world.spawnParticle(Particle.EXPLOSION, burst, 1);
-                    world.spawnParticle(Particle.DRAGON_BREATH, burst, 80, 0.8, 0.9, 0.8, 0.04);
-                    world.spawnParticle(Particle.PORTAL, burst, 140, 0.9, 0.8, 0.9, 0.18);
-                    world.spawnParticle(Particle.END_ROD, burst, 45, 0.55, 0.8, 0.55, 0.08);
+                    world.spawnParticle(Particle.FLASH, burst, 2, 0.15, 0.15, 0.15, 0.0);
+                    world.spawnParticle(Particle.DRAGON_BREATH, burst, 180, 1.0, 1.2, 1.0, 0.07);
+                    world.spawnParticle(Particle.PORTAL, burst, 260, 1.2, 1.4, 1.2, 0.22);
+                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, burst, 100, 0.8, 1.0, 0.8, 0.08);
+                    world.spawnParticle(Particle.ELECTRIC_SPARK, burst, 90, 0.9, 1.0, 0.9, 0.12);
+                    world.spawnParticle(Particle.END_ROD, burst, 90, 0.75, 1.1, 0.75, 0.12);
                     world.playSound(burst, Sound.BLOCK_BEACON_POWER_SELECT, 1.2f, 0.55f);
                     world.playSound(burst, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.25f);
                     player.sendTitle(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD + "CALAMITY AWAKENED",
