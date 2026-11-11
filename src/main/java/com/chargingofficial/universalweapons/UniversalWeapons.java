@@ -220,15 +220,15 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         grappleReadyAt.put(id, now + GRAPPLE_COOLDOWN_MS);
         grapplingPlayers.add(id);
         World world = player.getWorld();
-        world.playSound(player.getLocation(), Sound.ENTITY_FISHING_BOBBER_THROW, 1.0f, 0.7f);
+        world.playSound(player.getLocation(), Sound.BLOCK_CHAIN_PLACE, 1.0f, 0.8f);
         player.sendActionBar(ChatColor.LIGHT_PURPLE + "VOID GRAPPLE!");
 
-        // A controlled launch starts the approach, while per-tick steering caps speed
-        // and brakes before melee range. This avoids the previous 2.65-block/tick overshoot.
+        // Start with a quick but controlled pull. Horizontal momentum is retained all
+        // the way through the target approach; the grapple must never brake to a stop.
         Vector initial = target.getLocation().toVector().subtract(player.getLocation().toVector());
         initial.setY(0);
-        if (initial.lengthSquared() > 0.001) initial.normalize().multiply(0.72);
-        player.setVelocity(new Vector(initial.getX(), 0.62, initial.getZ()));
+        if (initial.lengthSquared() > 0.001) initial.normalize().multiply(0.68);
+        player.setVelocity(new Vector(initial.getX(), 0.52, initial.getZ()));
         player.setFallDistance(0);
 
         final int[] elapsed = {0};
@@ -242,9 +242,13 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 return;
             }
 
-            drawParticleChain(player.getEyeLocation(), target.getEyeLocation());
-            world.spawnParticle(Particle.PORTAL, player.getLocation().add(0, 0.8, 0),
-                    7, 0.22, 0.3, 0.22, 0.04);
+            // Render one short-lived tether update every 3 ticks. Drawing a dense
+            // line every tick leaves overlapping particle trails behind a moving caster.
+            if (elapsed[0] % 3 == 0) {
+                drawParticleChain(player.getEyeLocation(), target.getEyeLocation());
+                world.spawnParticle(Particle.PORTAL, player.getLocation().add(0, 0.8, 0),
+                        3, 0.12, 0.16, 0.12, 0.015);
+            }
 
             Vector offset = target.getLocation().toVector().subtract(player.getLocation().toVector());
             double distance = offset.length();
@@ -259,14 +263,14 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 horizontal.normalize();
                 double desiredSpeed = horizontalDistance > 8.0 ? 0.78
                         : horizontalDistance > 4.0 ? 0.58
-                        : horizontalDistance > 2.8 ? 0.34 : 0.0;
+                        : 0.32;
                 Vector desired = horizontal.multiply(desiredSpeed);
                 Vector blended = new Vector(
-                        current.getX() * 0.30 + desired.getX() * 0.70,
+                        current.getX() * 0.18 + desired.getX() * 0.82,
                         current.getY(),
-                        current.getZ() * 0.30 + desired.getZ() * 0.70
+                        current.getZ() * 0.18 + desired.getZ() * 0.82
                 );
-                double maxSpeed = horizontalDistance > 4.0 ? 0.82 : 0.48;
+                double maxSpeed = horizontalDistance > 4.0 ? 0.82 : 0.42;
                 double speed = Math.sqrt(blended.getX() * blended.getX() + blended.getZ() * blended.getZ());
                 if (speed > maxSpeed) {
                     blended.setX(blended.getX() / speed * maxSpeed);
@@ -274,7 +278,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 }
                 player.setVelocity(blended);
             } else {
-                player.setVelocity(new Vector(0, current.getY(), 0));
+                // At point-blank horizontal range, preserve existing horizontal drift
+                // instead of zeroing it; gravity and the falling mace approach continue.
+                player.setVelocity(new Vector(current.getX() * 0.92, current.getY(), current.getZ() * 0.92));
             }
 
             boolean smashReady = player.getVelocity().getY() < -0.12
@@ -424,38 +430,52 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         int centerY = center.getBlockY() - 1;
         int centerZ = center.getBlockZ();
 
-        // Search downward for the floor so airborne deaths still leave a crater.
+        // Find the surface beneath the death point, including airborne kills.
         int floorY = Integer.MIN_VALUE;
-        for (int y = centerY; y >= Math.max(world.getMinHeight(), centerY - 8); y--) {
+        for (int y = centerY; y >= Math.max(world.getMinHeight(), centerY - 12); y--) {
             Block block = world.getBlockAt(centerX, y, centerZ);
             if (isShatterable(block)) {
                 floorY = y;
                 break;
             }
         }
-        if (floorY == Integer.MIN_VALUE) {
-            return;
-        }
+        if (floorY == Integer.MIN_VALUE) return;
 
-        // Semi-large 7x7 crater with a deeper core. Blocks are removed without
-        // explosions or item drops, so player death drops and nearby loot remain intact.
-        for (int x = -3; x <= 3; x++) {
-            for (int z = -3; z <= 3; z++) {
+        // Wide bowl-shaped blast crater (11x11 footprint). The center is excavated
+        // deepest, with progressively shallower rings to create a visible impact bowl.
+        // Blocks are set to air without drops; this does not touch entity death loot.
+        for (int x = -5; x <= 5; x++) {
+            for (int z = -5; z <= 5; z++) {
                 double radius = Math.sqrt(x * x + z * z);
-                if (radius > 3.2) {
-                    continue;
-                }
-                int depth = radius < 1.2 ? 3 : radius < 2.3 ? 2 : 1;
-                for (int y = 0; y < depth; y++) {
-                    Block block = world.getBlockAt(centerX + x, floorY - y, centerZ + z);
-                    if (!isShatterable(block)) {
-                        continue;
-                    }
+                if (radius > 5.25) continue;
+
+                int depth = radius <= 1.4 ? 4
+                        : radius <= 2.7 ? 3
+                        : radius <= 4.1 ? 2 : 1;
+
+                for (int layer = 0; layer < depth; layer++) {
+                    Block block = world.getBlockAt(centerX + x, floorY - layer, centerZ + z);
+                    if (!isShatterable(block)) continue;
+
                     BlockBreakEvent breakEvent = new BlockBreakEvent(block, holder);
                     Bukkit.getPluginManager().callEvent(breakEvent);
                     if (!breakEvent.isCancelled()) {
                         block.setType(Material.AIR, false);
                     }
+                }
+            }
+        }
+
+        // Clear a little headroom above the rim's inner rings so the impact reads as
+        // a crater rather than a narrow hole, without touching containers/tile entities.
+        for (int x = -3; x <= 3; x++) {
+            for (int z = -3; z <= 3; z++) {
+                if (Math.sqrt(x * x + z * z) > 3.4) continue;
+                Block above = world.getBlockAt(centerX + x, floorY + 1, centerZ + z);
+                if (isShatterable(above)) {
+                    BlockBreakEvent breakEvent = new BlockBreakEvent(above, holder);
+                    Bukkit.getPluginManager().callEvent(breakEvent);
+                    if (!breakEvent.isCancelled()) above.setType(Material.AIR, false);
                 }
             }
         }
