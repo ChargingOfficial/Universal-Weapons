@@ -84,6 +84,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 ChatColor.GRAY + "A relic consumed by the void.",
                 ChatColor.LIGHT_PURPLE + "Right-click: " + ChatColor.WHITE + "Corrupted Dash",
                 ChatColor.LIGHT_PURPLE + "Sneak + right-click: " + ChatColor.WHITE + "Void Grapple",
+                ChatColor.LIGHT_PURPLE + "Shield Shatter: " + ChatColor.WHITE + "Breaks blocking shields with Wind Burst.",
                 ChatColor.DARK_PURPLE + "Every third hit triggers an immediate second strike."
         ));
         meta.setCustomModelData(11001);
