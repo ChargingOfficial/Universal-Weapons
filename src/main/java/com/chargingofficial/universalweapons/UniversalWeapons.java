@@ -162,22 +162,26 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         world.playSound(origin, Sound.ENTITY_ENDERMAN_TELEPORT, 0.9f, 0.6f);
         world.spawnParticle(Particle.DRAGON_BREATH, origin, 30, 0.35, 0.3, 0.35, 0.04);
 
-        // Emit a moving wake for several ticks so the trail follows the player's dash.
+        // A layered purple particle ribbon follows the player's real movement.
         final int[] ticks = {0};
         Bukkit.getScheduler().runTaskTimer(this, task -> {
-            if (!player.isOnline() || !player.isValid() || ticks[0]++ >= 7) {
+            if (!player.isOnline() || !player.isValid() || !player.getWorld().equals(world)
+                    || ticks[0]++ >= 10) {
                 task.cancel();
                 return;
             }
-            Location trail = player.getLocation().add(0, 0.9, 0);
-            Vector behind = player.getVelocity().clone();
-            if (behind.lengthSquared() > 0.001) {
-                behind.normalize().multiply(-0.65);
-            }
-            Location point = trail.add(behind);
-            world.spawnParticle(Particle.PORTAL, point, 12, 0.22, 0.28, 0.22, 0.08);
-            world.spawnParticle(Particle.END_ROD, point, 4, 0.12, 0.18, 0.12, 0.01);
-            world.spawnParticle(Particle.DRAGON_BREATH, point, 5, 0.18, 0.16, 0.18, 0.015);
+
+            Vector motion = player.getVelocity().clone();
+            Vector backwards = motion.lengthSquared() > 0.01
+                    ? motion.normalize().multiply(-0.75)
+                    : direction.clone().multiply(-0.75);
+            Location trail = player.getLocation().add(0, 0.85, 0);
+            Location point = trail.add(backwards);
+
+            world.spawnParticle(Particle.PORTAL, point, 20, 0.24, 0.30, 0.24, 0.10);
+            world.spawnParticle(Particle.DRAGON_BREATH, point, 12, 0.20, 0.22, 0.20, 0.025);
+            world.spawnParticle(Particle.END_ROD, point, 6, 0.14, 0.18, 0.14, 0.015);
+            world.spawnParticle(Particle.CRIT, trail, 4, 0.18, 0.20, 0.18, 0.08);
         }, 0L, 1L);
     }
 
@@ -257,9 +261,16 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 return;
             }
 
-            Vector pull = toTarget.normalize().multiply(Math.min(1.45, 0.55 + distance * 0.045));
-            pull.setY(Math.max(-0.15, Math.min(0.55, pull.getY() + 0.12)));
-            player.setVelocity(pull);
+            // Full 3D steering keeps the pull working even when the caster is far above.
+            // Blending velocity each tick prevents abrupt direction changes and jitter.
+            Vector desiredVelocity = toTarget.clone().normalize().multiply(1.12);
+            Vector smoothVelocity = player.getVelocity().clone().multiply(0.28)
+                    .add(desiredVelocity.multiply(0.72));
+            if (smoothVelocity.length() > 1.25) {
+                smoothVelocity.normalize().multiply(1.25);
+            }
+            player.setVelocity(smoothVelocity);
+            player.setFallDistance(0);
             player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 0.8, 0),
                     5, 0.22, 0.3, 0.22, 0.04);
         }, 0L, 1L);
@@ -299,10 +310,21 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         }
 
         player.sendActionBar(ChatColor.LIGHT_PURPLE + "CALAMITY: DOUBLE STRIKE!");
-        // This is a second damage event, not bonus damage merged into the first hit.
-        // Clearing the vanilla hurt timer allows it to land immediately and can
-        // consume a second Totem after the original hit consumed the first.
+        // Suspend the attacker briefly, then release the second hit as a separate event.
+        boolean hadGravity = player.hasGravity();
+        player.setGravity(false);
+        player.setVelocity(new Vector(0, 0, 0));
+        player.setFallDistance(0);
+        Location chargeLocation = player.getLocation().add(0, 1, 0);
+        player.getWorld().playSound(chargeLocation, Sound.BLOCK_BEACON_POWER_SELECT, 0.8f, 0.65f);
+        player.getWorld().spawnParticle(Particle.PORTAL, chargeLocation, 28, 0.35, 0.45, 0.35, 0.12);
+        player.getWorld().spawnParticle(Particle.DRAGON_BREATH, chargeLocation, 18, 0.25, 0.35, 0.25, 0.025);
+
         Bukkit.getScheduler().runTaskLater(this, () -> {
+            if (player.isOnline() && player.isValid()) {
+                player.setGravity(hadGravity);
+                player.setVelocity(new Vector(0, -0.12, 0));
+            }
             if (!player.isOnline() || !victim.isValid() || victim.isDead()
                     || !player.getWorld().equals(victim.getWorld())) {
                 return;
@@ -316,10 +338,10 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             World world = victim.getWorld();
             world.spawnParticle(Particle.SWEEP_ATTACK, hitLocation, 1);
             world.spawnParticle(Particle.DRAGON_BREATH, hitLocation,
-                    30, 0.35, 0.45, 0.35, 0.03);
-            world.spawnParticle(Particle.CRIT, hitLocation, 18, 0.3, 0.4, 0.3, 0.12);
+                    36, 0.35, 0.45, 0.35, 0.035);
+            world.spawnParticle(Particle.CRIT, hitLocation, 24, 0.3, 0.4, 0.3, 0.14);
             world.playSound(hitLocation, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.55f);
-        }, DOUBLE_STRIKE_DELAY_TICKS);
+        }, 6L);
     }
 
     @EventHandler
