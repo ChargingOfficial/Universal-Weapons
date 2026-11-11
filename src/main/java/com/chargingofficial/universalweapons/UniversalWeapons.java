@@ -359,42 +359,4 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             abilityDamageInProgress.remove(id);
         }
     }
-}    @EventHandler
-    public void onMaceHit(EntityDamageByEntityEvent event) {
-        if (event.isCancelled()
-                || !(event.getDamager() instanceof Player player)
-                || !(event.getEntity() instanceof LivingEntity victim)
-                || !isCalamity(player.getInventory().getItemInMainHand())
-                || abilityDamageInProgress.contains(player.getUniqueId())) {
-            return;
-        }
-
-        int hits = hitCounts.merge(player.getUniqueId(), 1, Integer::sum);
-        if (hits % 3 != 0) {
-            return;
-        }
-
-        player.sendActionBar(ChatColor.LIGHT_PURPLE + "CALAMITY: DOUBLE STRIKE!");
-        // Reset the victim's vanilla hurt cooldown before the follow-up so it is
-        // processed as a second damage event, even one tick after the first hit.
-        Bukkit.getScheduler().runTaskLater(this, () -> {
-            if (!player.isOnline() || !victim.isValid() || victim.isDead()
-                    || !player.getWorld().equals(victim.getWorld())) {
-                return;
-            }
-
-            player.swingMainHand();
-            victim.setNoDamageTicks(0);
-            damageFromAbility(player, victim, BONUS_HIT_DAMAGE);
-
-            Location hitLocation = victim.getLocation().add(0, 1, 0);
-            World world = victim.getWorld();
-            world.spawnParticle(Particle.SWEEP_ATTACK, hitLocation, 1);
-            world.spawnParticle(Particle.DRAGON_BREATH, hitLocation,
-                    30, 0.35, 0.45, 0.35, 0.03);
-            world.spawnParticle(Particle.CRIT, hitLocation, 18, 0.3, 0.4, 0.3, 0.12);
-            world.playSound(hitLocation, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.55f);
-        }, DOUBLE_STRIKE_DELAY_TICKS);
-    }
-
-
+}
