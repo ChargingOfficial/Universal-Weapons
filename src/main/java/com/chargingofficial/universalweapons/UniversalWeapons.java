@@ -15,6 +15,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -303,13 +304,33 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onMaceHit(EntityDamageByEntityEvent event) {
-        if (event.isCancelled()
-                || !(event.getDamager() instanceof Player player)
+        if (!(event.getDamager() instanceof Player player)
                 || !(event.getEntity() instanceof LivingEntity victim)
                 || !isCalamity(player.getInventory().getItemInMainHand())
                 || abilityDamageInProgress.contains(player.getUniqueId())) {
+            return;
+        }
+
+        // A Corrupted Calamity hit shatters a shield that is actively blocking.
+        // Remove the shield itself rather than applying a temporary disable cooldown.
+        // Un-cancel this shield-blocked damage so the mace impact still lands and
+        // vanilla mace smash/Wind Burst processing can continue normally.
+        if (victim instanceof Player target && target.isBlocking()) {
+            ItemStack activeItem = target.getActiveItem();
+            if (activeItem != null && activeItem.getType() == Material.SHIELD) {
+                activeItem.setAmount(0);
+                target.clearActiveItem();
+                event.setCancelled(false);
+                target.getWorld().playSound(target.getLocation(), Sound.ITEM_SHIELD_BREAK, 1.0f, 0.85f);
+                target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
+                        18, 0.35, 0.45, 0.35, 0.12);
+                target.sendActionBar(ChatColor.RED + "Your shield was shattered!");
+            }
+        }
+
+        if (event.isCancelled()) {
             return;
         }
 
