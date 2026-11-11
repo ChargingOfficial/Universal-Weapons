@@ -14,7 +14,7 @@ This is a standard Bukkit/Paper plugin, not a client mod. It will not run on a v
 
 ## Corrupted Calamity
 
-Use `/weapon` to receive the mace. It requires the `universalweapons.weapon` permission, which is granted to operators by default. If your inventory is full, the item drops at your location.
+Use `/weapon` to receive the mace. It requires the `universalweapons.weapon` permission, which is granted to operators by default. If your inventory is full, the item drops at your location. Use `/stuck` at any time to restore gravity and clear residual movement if an ability ever leaves you suspended.
 
 ### Built-in enchantments
 
@@ -30,7 +30,7 @@ Use `/weapon` to receive the mace. It requires the `universalweapons.weapon` per
 |---|---|---|
 | Corrupted Dash | Right-click while holding the mace | Launches you in the direction you face with a dense purple particle ribbon that follows your movement. 1.8-second cooldown. |
 | Void Grapple | Sneak + right-click while looking at another player | Maintains a visible particle tether while smoothly steering you in full 3D toward the targeted player, including when you start far above them, then automatically swings and strikes once you are within 2.7 blocks. 3.5-second cooldown. |
-| Double Strike | Every third qualifying mace hit | Briefly freezes the attacker in place for 6 ticks (0.3 seconds), then performs a distinct follow-up swing. The follow-up resets the target’s hurt cooldown and deals 20 damage as a separate damage event, allowing it to trigger a second Totem of Undying after the first hit consumes one. |
+| Double Strike | Every third qualifying mace hit | Briefly freezes the attacker in place for 6 ticks (0.3 seconds), then restores their previous gravity state before performing a distinct follow-up swing. The follow-up resets the target’s hurt cooldown and deals 20 damage as a separate damage event, allowing it to trigger a second Totem of Undying after the first hit consumes one. |
 | Ground Shatter | Land after falling at least 3 blocks while holding the mace | Cancels fall damage, creates corrupted impact particles, and damages nearby living entities for 5 damage. |
 
 Damage values are Minecraft damage points (2 points equal one full heart before armor and other mitigation).
@@ -90,7 +90,8 @@ README.md
 - The weapon is identified by a persistent data tag, not its display name.
 - Off-hand interaction events are ignored to prevent abilities firing twice.
 - Ability damage is guarded so it does not increment the regular-hit counter.
-- Double Strike briefly suspends the attacker for 6 server ticks (0.3 seconds), then performs a separate 20-damage hit. It resets the target hurt cooldown so a second Totem of Undying can activate.
+- Double Strike tracks each suspended attacker and guarantees gravity restoration when its timer completes, when the player disconnects, or when the plugin disables. Its delayed hit is cancelled if the suspension was manually cleared.
+- `/stuck` is available to all players and force-restores gravity, clears residual velocity, and cancels a pending Double Strike suspension timer.
 - Grapple continuously reels the player toward the target with a live particle tether and automatically performs a mace strike at close range.
 - Ground Shatter uses particles and sound only; it does not break or modify world blocks.
 - Test on a backup or staging server before deploying to a live server.
