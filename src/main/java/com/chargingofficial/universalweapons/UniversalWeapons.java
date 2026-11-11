@@ -45,7 +45,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private static final double BONUS_HIT_DAMAGE = 20.0;
     private static final double SLAM_DAMAGE = 5.0;
     private static final double SLAM_MIN_FALL_DISTANCE = 3.0;
-    private static final long DOUBLE_STRIKE_DELAY_TICKS = 1L;
+    private static final long DOUBLE_STRIKE_DELAY_TICKS = 6L;
 
     private NamespacedKey weaponKey;
     private final Map<UUID, Integer> hitCounts = new HashMap<>();
@@ -341,7 +341,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     36, 0.35, 0.45, 0.35, 0.035);
             world.spawnParticle(Particle.CRIT, hitLocation, 24, 0.3, 0.4, 0.3, 0.14);
             world.playSound(hitLocation, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.55f);
-        }, 6L);
+        }, DOUBLE_STRIKE_DELAY_TICKS);
     }
 
     @EventHandler
