@@ -259,6 +259,16 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             // distance. This gives the mace a chance to register a true smash attack and
             // lets Wind Burst be handled by vanilla/Paper enchantment mechanics.
             boolean smashReady = velocity.getY() < -0.15 && player.getFallDistance() >= 1.5f;
+            if (distance <= 5.0 && !smashReady) {
+                // Bleed off horizontal speed near the target while leaving the vertical
+                // launch/fall untouched, so the player doesn't fly past before the smash.
+                Vector toward = target.getLocation().toVector().subtract(player.getLocation().toVector());
+                toward.setY(0);
+                if (toward.lengthSquared() > 0.001) {
+                    toward.normalize().multiply(0.42);
+                    player.setVelocity(new Vector(toward.getX(), velocity.getY(), toward.getZ()));
+                }
+            }
             if (distance <= 3.8 && smashReady) {
                 attacked[0] = true;
                 grapplingPlayers.remove(id);
