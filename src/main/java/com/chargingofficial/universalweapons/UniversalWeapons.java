@@ -21,7 +21,6 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.block.Block;
 import org.bukkit.block.TileState;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -47,15 +46,11 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private static final long GRAPPLE_COOLDOWN_MS = 3_500L;
     private static final double GRAPPLE_RANGE = 24.0;
     private static final double BONUS_HIT_DAMAGE = 20.0;
-    private static final double SLAM_DAMAGE = 5.0;
-    private static final long GROUND_SHATTER_COOLDOWN_MS = 450L;
-    private static final long DOUBLE_STRIKE_DELAY_TICKS = 10L;
 
     private NamespacedKey weaponKey;
     private final Map<UUID, Integer> hitCounts = new HashMap<>();
     private final Map<UUID, Long> dashReadyAt = new HashMap<>();
     private final Map<UUID, Long> grappleReadyAt = new HashMap<>();
-    private final Map<UUID, Long> groundShatterReadyAt = new HashMap<>();
     private final Set<UUID> abilityDamageInProgress = new HashSet<>();
     private final Set<UUID> grapplingPlayers = new HashSet<>();
 
@@ -78,7 +73,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         hitCounts.clear();
         dashReadyAt.clear();
         grappleReadyAt.clear();
-        groundShatterReadyAt.clear();
         abilityDamageInProgress.clear();
         grapplingPlayers.clear();
     }
@@ -92,8 +86,8 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 ChatColor.GRAY + "A relic consumed by the void.",
                 ChatColor.LIGHT_PURPLE + "Right-click: " + ChatColor.WHITE + "Corrupted Dash",
                 ChatColor.LIGHT_PURPLE + "Sneak + right-click: " + ChatColor.WHITE + "Void Grapple",
-                ChatColor.DARK_PURPLE + "Every third hit triggers a rapid second strike.",
-                ChatColor.GRAY + "A fall of 3+ blocks triggers Ground Shatter."
+                ChatColor.DARK_PURPLE + "Every third hit triggers an immediate second strike.",
+                ChatColor.LIGHT_PURPLE + "Kill Strike: " + ChatColor.WHITE + "Executes targets with exactly one Totem."
         ));
         meta.setCustomModelData(11001);
         meta.addEnchant(org.bukkit.enchantments.Enchantment.DENSITY, 5, true);
@@ -227,63 +221,65 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
         grappleReadyAt.put(id, now + GRAPPLE_COOLDOWN_MS);
         grapplingPlayers.add(id);
-        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_FISHING_BOBBER_THROW, 1.0f, 0.7f);
+        World world = player.getWorld();
+        world.playSound(player.getLocation(), Sound.ENTITY_FISHING_BOBBER_THROW, 1.0f, 0.7f);
         player.sendActionBar(ChatColor.LIGHT_PURPLE + "VOID GRAPPLE!");
 
-        // Pull horizontally only. Preserve vertical velocity and fall distance so normal
-        // gravity and the mace's falling-damage calculation are never interrupted.
+        // Launch in one burst instead of continually steering the player. The upward
+        // component creates a real falling mace approach; the server's normal attack()
+        // call below performs the actual equipped-mace attack, including smash enchant logic.
+        Vector toTarget = target.getLocation().toVector().subtract(player.getLocation().toVector());
+        Vector horizontal = new Vector(toTarget.getX(), 0, toTarget.getZ());
+        if (horizontal.lengthSquared() < 0.001) {
+            horizontal = player.getLocation().getDirection().setY(0);
+        }
+        horizontal.normalize().multiply(2.65);
+        player.setVelocity(new Vector(horizontal.getX(), 1.05, horizontal.getZ()));
+        player.setFallDistance(0);
+
         final int[] elapsed = {0};
+        final boolean[] attacked = {false};
         Bukkit.getScheduler().runTaskTimer(this, task -> {
-            if (!player.isOnline() || !player.isValid() || !target.isValid() || target.isDead()
-                    || !target.isOnline() || !player.getWorld().equals(target.getWorld())
-                    || elapsed[0]++ >= 60) {
+            if (attacked[0] || !player.isOnline() || !player.isValid()
+                    || !target.isValid() || target.isDead() || !target.isOnline()
+                    || !player.getWorld().equals(target.getWorld()) || elapsed[0]++ >= 45) {
                 grapplingPlayers.remove(id);
                 task.cancel();
                 return;
             }
 
             drawParticleChain(player.getEyeLocation(), target.getEyeLocation());
-            Vector offset = target.getLocation().toVector().subtract(player.getLocation().toVector());
-            Vector horizontal = new Vector(offset.getX(), 0, offset.getZ());
-            double horizontalDistance = horizontal.length();
-            double distance = player.getLocation().distance(target.getLocation());
+            world.spawnParticle(Particle.PORTAL, player.getLocation().add(0, 0.8, 0),
+                    7, 0.22, 0.3, 0.22, 0.04);
 
-            if (distance <= 2.6 || horizontalDistance <= 1.4) {
+            double distance = player.getLocation().distance(target.getLocation());
+            Vector velocity = player.getVelocity();
+
+            // Wait until the player is close AND descending with enough accumulated fall
+            // distance. This gives the mace a chance to register a true smash attack and
+            // lets Wind Burst be handled by vanilla/Paper enchantment mechanics.
+            boolean smashReady = velocity.getY() < -0.15 && player.getFallDistance() >= 1.5f;
+            if (distance <= 3.8 && smashReady) {
+                attacked[0] = true;
                 grapplingPlayers.remove(id);
                 task.cancel();
-                // Do not teleport or change velocity at the end of the pull.
+
                 player.swingMainHand();
-                target.setNoDamageTicks(0);
-                damageFromAbility(player, target, 8.0);
+                player.attack(target);
                 Location impact = target.getLocation().add(0, 1, 0);
-                World world = target.getWorld();
-                world.spawnParticle(Particle.SWEEP_ATTACK, impact, 1);
-                world.spawnParticle(Particle.CRIT, impact, 24, 0.35, 0.45, 0.35, 0.12);
-                world.spawnParticle(Particle.DRAGON_BREATH, impact, 18, 0.3, 0.4, 0.3, 0.025);
-                world.playSound(impact, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.65f);
-                return;
+                world.spawnParticle(Particle.CRIT, impact, 28, 0.35, 0.45, 0.35, 0.12);
+                world.spawnParticle(Particle.DRAGON_BREATH, impact, 22, 0.3, 0.4, 0.3, 0.025);
+                world.playSound(impact, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.6f);
+            } else if (distance <= 3.2 && elapsed[0] > 30) {
+                // Safe fallback for cramped ceilings/obstructed arcs: still use the actual
+                // melee attack API rather than fake damage, though a smash may not be possible.
+                attacked[0] = true;
+                grapplingPlayers.remove(id);
+                task.cancel();
+                player.swingMainHand();
+                player.attack(target);
             }
-
-            if (horizontalDistance > 0.001) {
-                Vector direction = horizontal.multiply(1.0 / horizontalDistance);
-                Vector current = player.getVelocity();
-                // Small acceleration plus a speed cap gives a steady reel instead of
-                // repeatedly snapping the player's entire velocity toward the target.
-                Vector nextHorizontal = new Vector(
-                        current.getX() * 0.78 + direction.getX() * 0.16,
-                        0,
-                        current.getZ() * 0.78 + direction.getZ() * 0.16
-                );
-                double speed = nextHorizontal.length();
-                if (speed > 0.82) {
-                    nextHorizontal.multiply(0.82 / speed);
-                }
-                player.setVelocity(new Vector(nextHorizontal.getX(), current.getY(), nextHorizontal.getZ()));
-            }
-
-            player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 0.8, 0),
-                    4, 0.16, 0.22, 0.16, 0.025);
-        }, 0L, 1L);
+        }, 1L, 1L);
     }
 
     private void drawParticleChain(Location from, Location to) {
@@ -314,7 +310,14 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             return;
         }
 
-        triggerGroundShatter(player, victim);
+        // Kill Strike replaces the old Ground Shatter. Exactly one Totem in the
+        // victim's inventory/hands is not enough to survive this execution.
+        if (victim instanceof Player target && countTotems(target) == 1) {
+            event.setCancelled(true);
+            executeKillStrike(player, target);
+            return;
+        }
+
         int hits = hitCounts.merge(player.getUniqueId(), 1, Integer::sum);
         if (hits % 3 != 0) {
             return;
@@ -322,8 +325,10 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
         player.sendActionBar(ChatColor.LIGHT_PURPLE + "CALAMITY: DOUBLE STRIKE!");
 
-        // No gravity changes, velocity lock, or airborne pause: only delay the follow-up hit.
-        Bukkit.getScheduler().runTaskLater(this, () -> {
+        // The original hit resolves first; follow up on the very next server tick.
+        // Reset hurt immunity immediately before the second genuine damage event so
+        // a second Totem can activate instead of the hit being swallowed by immunity.
+        Bukkit.getScheduler().runTask(this, () -> {
             if (!player.isOnline() || !player.isValid() || !victim.isValid() || victim.isDead()
                     || !player.getWorld().equals(victim.getWorld())) {
                 return;
@@ -340,60 +345,90 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     36, 0.35, 0.45, 0.35, 0.035);
             world.spawnParticle(Particle.CRIT, hitLocation, 24, 0.3, 0.4, 0.3, 0.14);
             world.playSound(hitLocation, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.55f);
-        }, DOUBLE_STRIKE_DELAY_TICKS);
+        });
     }
 
-    /**
-     * Ground Shatter triggers on a direct Corrupted Calamity mace hit.
-     * It creates a small crater around the victim's feet and respects BlockBreakEvent protections.
-     */
-    private void triggerGroundShatter(Player player, LivingEntity victim) {
-        long now = System.currentTimeMillis();
-        UUID id = player.getUniqueId();
-        if (groundShatterReadyAt.getOrDefault(id, 0L) > now) {
-            return;
+    private int countTotems(Player player) {
+        int count = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.getType() == Material.TOTEM_OF_UNDYING) {
+                count += item.getAmount();
+            }
         }
-        groundShatterReadyAt.put(id, now + GROUND_SHATTER_COOLDOWN_MS);
+        return count;
+    }
 
-        Location impact = victim.getLocation();
-        World world = impact.getWorld();
-        world.playSound(impact, Sound.ENTITY_GENERIC_EXPLODE, 0.9f, 1.25f);
-        world.playSound(impact, Sound.BLOCK_DEEPSLATE_BREAK, 1.0f, 0.7f);
-        world.spawnParticle(Particle.EXPLOSION, impact.clone().add(0, 0.25, 0), 1);
-        world.spawnParticle(Particle.BLOCK, impact, 55, 1.0, 0.25, 1.0, 0.18,
+    private void executeKillStrike(Player holder, Player victim) {
+        Location deathLocation = victim.getLocation().clone();
+        World world = deathLocation.getWorld();
+
+        world.playSound(deathLocation, Sound.ENTITY_GENERIC_EXPLODE, 1.2f, 0.65f);
+        world.playSound(deathLocation, Sound.ENTITY_WITHER_DEATH, 0.7f, 1.35f);
+        world.spawnParticle(Particle.EXPLOSION, deathLocation.clone().add(0, 1, 0), 2);
+        world.spawnParticle(Particle.BLOCK, deathLocation, 110, 1.8, 0.5, 1.8, 0.2,
                 Material.CRYING_OBSIDIAN.createBlockData());
-        world.spawnParticle(Particle.DRAGON_BREATH, impact, 35, 0.9, 0.35, 0.9, 0.035);
-        world.spawnParticle(Particle.SWEEP_ATTACK, impact.clone().add(0, 0.2, 0), 5, 0.9, 0.1, 0.9, 0);
+        world.spawnParticle(Particle.DRAGON_BREATH, deathLocation, 85, 1.5, 0.6, 1.5, 0.045);
+        world.spawnParticle(Particle.PORTAL, deathLocation, 100, 1.8, 0.8, 1.8, 0.25);
 
-        // Find the real floor beneath the victim, even if the hit has knocked them upward.
-        int floorY = impact.getBlockY() - 1;
-        boolean foundFloor = false;
-        for (int y = impact.getBlockY() - 1; y >= Math.max(world.getMinHeight(), impact.getBlockY() - 6); y--) {
-            Block candidate = world.getBlockAt(impact.getBlockX(), y, impact.getBlockZ());
-            if (isShatterable(candidate)) {
+        carveKillStrikeCrater(holder, deathLocation);
+
+        // Direct lethal health assignment bypasses the victim's final Totem activation.
+        victim.setHealth(0.0);
+
+        // Shockwave damages nearby entities/players, but never the mace holder.
+        for (Entity entity : world.getNearbyEntities(deathLocation, 6.0, 4.0, 6.0)) {
+            if (!(entity instanceof LivingEntity nearby) || nearby == holder || nearby == victim
+                    || nearby.isDead()) {
+                continue;
+            }
+            abilityDamageInProgress.add(holder.getUniqueId());
+            try {
+                nearby.damage(8.0, holder);
+            } finally {
+                abilityDamageInProgress.remove(holder.getUniqueId());
+            }
+        }
+
+        holder.sendActionBar(ChatColor.DARK_PURPLE + "KILL STRIKE!");
+    }
+
+    private void carveKillStrikeCrater(Player holder, Location center) {
+        World world = center.getWorld();
+        int centerX = center.getBlockX();
+        int centerY = center.getBlockY() - 1;
+        int centerZ = center.getBlockZ();
+
+        // Search downward for the floor so airborne deaths still leave a crater.
+        int floorY = Integer.MIN_VALUE;
+        for (int y = centerY; y >= Math.max(world.getMinHeight(), centerY - 8); y--) {
+            Block block = world.getBlockAt(centerX, y, centerZ);
+            if (isShatterable(block)) {
                 floorY = y;
-                foundFloor = true;
                 break;
             }
         }
-        if (!foundFloor) {
+        if (floorY == Integer.MIN_VALUE) {
             return;
         }
 
-        // A compact 3x3 crater, with a two-block-deep center.
-        for (int x = -1; x <= 1; x++) {
-            for (int z = -1; z <= 1; z++) {
-                int depth = (x == 0 && z == 0) ? 2 : 1;
+        // Semi-large 7x7 crater with a deeper core. Blocks are removed without
+        // explosions or item drops, so player death drops and nearby loot remain intact.
+        for (int x = -3; x <= 3; x++) {
+            for (int z = -3; z <= 3; z++) {
+                double radius = Math.sqrt(x * x + z * z);
+                if (radius > 3.2) {
+                    continue;
+                }
+                int depth = radius < 1.2 ? 3 : radius < 2.3 ? 2 : 1;
                 for (int y = 0; y < depth; y++) {
-                    Block block = world.getBlockAt(impact.getBlockX() + x, floorY - y,
-                            impact.getBlockZ() + z);
+                    Block block = world.getBlockAt(centerX + x, floorY - y, centerZ + z);
                     if (!isShatterable(block)) {
                         continue;
                     }
-                    BlockBreakEvent breakEvent = new BlockBreakEvent(block, player);
+                    BlockBreakEvent breakEvent = new BlockBreakEvent(block, holder);
                     Bukkit.getPluginManager().callEvent(breakEvent);
                     if (!breakEvent.isCancelled()) {
-                        block.breakNaturally();
+                        block.setType(Material.AIR, false);
                     }
                 }
             }
