@@ -215,9 +215,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             player.sendMessage(ChatColor.RED + "Aim at an enemy player within 24 blocks to grapple.");
             return;
         }
-        if (!player.getWorld().equals(target.getWorld())) {
-            return;
-        }
+        if (!player.getWorld().equals(target.getWorld())) return;
 
         grappleReadyAt.put(id, now + GRAPPLE_COOLDOWN_MS);
         grapplingPlayers.add(id);
@@ -225,16 +223,12 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         world.playSound(player.getLocation(), Sound.ENTITY_FISHING_BOBBER_THROW, 1.0f, 0.7f);
         player.sendActionBar(ChatColor.LIGHT_PURPLE + "VOID GRAPPLE!");
 
-        // Launch in one burst instead of continually steering the player. The upward
-        // component creates a real falling mace approach; the server's normal attack()
-        // call below performs the actual equipped-mace attack, including smash enchant logic.
-        Vector toTarget = target.getLocation().toVector().subtract(player.getLocation().toVector());
-        Vector horizontal = new Vector(toTarget.getX(), 0, toTarget.getZ());
-        if (horizontal.lengthSquared() < 0.001) {
-            horizontal = player.getLocation().getDirection().setY(0);
-        }
-        horizontal.normalize().multiply(2.65);
-        player.setVelocity(new Vector(horizontal.getX(), 1.05, horizontal.getZ()));
+        // A controlled launch starts the approach, while per-tick steering caps speed
+        // and brakes before melee range. This avoids the previous 2.65-block/tick overshoot.
+        Vector initial = target.getLocation().toVector().subtract(player.getLocation().toVector());
+        initial.setY(0);
+        if (initial.lengthSquared() > 0.001) initial.normalize().multiply(0.72);
+        player.setVelocity(new Vector(initial.getX(), 0.62, initial.getZ()));
         player.setFallDistance(0);
 
         final int[] elapsed = {0};
@@ -242,7 +236,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         Bukkit.getScheduler().runTaskTimer(this, task -> {
             if (attacked[0] || !player.isOnline() || !player.isValid()
                     || !target.isValid() || target.isDead() || !target.isOnline()
-                    || !player.getWorld().equals(target.getWorld()) || elapsed[0]++ >= 45) {
+                    || !player.getWorld().equals(target.getWorld()) || elapsed[0]++ >= 60) {
                 grapplingPlayers.remove(id);
                 task.cancel();
                 return;
@@ -252,37 +246,54 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             world.spawnParticle(Particle.PORTAL, player.getLocation().add(0, 0.8, 0),
                     7, 0.22, 0.3, 0.22, 0.04);
 
-            double distance = player.getLocation().distance(target.getLocation());
-            Vector velocity = player.getVelocity();
+            Vector offset = target.getLocation().toVector().subtract(player.getLocation().toVector());
+            double distance = offset.length();
+            Vector current = player.getVelocity();
 
-            // Wait until the player is close AND descending with enough accumulated fall
-            // distance. This gives the mace a chance to register a true smash attack and
-            // lets Wind Burst be handled by vanilla/Paper enchantment mechanics.
-            boolean smashReady = velocity.getY() < -0.15 && player.getFallDistance() >= 1.5f;
-            if (distance <= 5.0 && !smashReady) {
-                // Bleed off horizontal speed near the target while leaving the vertical
-                // launch/fall untouched, so the player doesn't fly past before the smash.
-                Vector toward = target.getLocation().toVector().subtract(player.getLocation().toVector());
-                toward.setY(0);
-                if (toward.lengthSquared() > 0.001) {
-                    toward.normalize().multiply(0.42);
-                    player.setVelocity(new Vector(toward.getX(), velocity.getY(), toward.getZ()));
+            // Steer horizontally toward the target, with a lower speed cap as the
+            // player enters attack range. Preserve vertical velocity/fall distance so
+            // the mace's smash calculation is not interrupted.
+            Vector horizontal = new Vector(offset.getX(), 0, offset.getZ());
+            double horizontalDistance = horizontal.length();
+            if (horizontalDistance > 0.12) {
+                horizontal.normalize();
+                double desiredSpeed = horizontalDistance > 8.0 ? 0.78
+                        : horizontalDistance > 4.0 ? 0.58
+                        : horizontalDistance > 2.8 ? 0.34 : 0.0;
+                Vector desired = horizontal.multiply(desiredSpeed);
+                Vector blended = new Vector(
+                        current.getX() * 0.30 + desired.getX() * 0.70,
+                        current.getY(),
+                        current.getZ() * 0.30 + desired.getZ() * 0.70
+                );
+                double maxSpeed = horizontalDistance > 4.0 ? 0.82 : 0.48;
+                double speed = Math.sqrt(blended.getX() * blended.getX() + blended.getZ() * blended.getZ());
+                if (speed > maxSpeed) {
+                    blended.setX(blended.getX() / speed * maxSpeed);
+                    blended.setZ(blended.getZ() / speed * maxSpeed);
                 }
+                player.setVelocity(blended);
+            } else {
+                player.setVelocity(new Vector(0, current.getY(), 0));
             }
-            if (distance <= 3.8 && smashReady) {
+
+            boolean smashReady = player.getVelocity().getY() < -0.12
+                    && player.getFallDistance() >= 1.5f;
+            // Actual melee reach is close to 3 blocks. Attack only inside 2.7 blocks
+            // so Player.attack() cannot whiff from the old 3.8-5 block trigger.
+            if (distance <= 2.7 && smashReady) {
                 attacked[0] = true;
                 grapplingPlayers.remove(id);
                 task.cancel();
-
                 player.swingMainHand();
                 player.attack(target);
                 Location impact = target.getLocation().add(0, 1, 0);
                 world.spawnParticle(Particle.CRIT, impact, 28, 0.35, 0.45, 0.35, 0.12);
                 world.spawnParticle(Particle.DRAGON_BREATH, impact, 22, 0.3, 0.4, 0.3, 0.025);
                 world.playSound(impact, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.6f);
-            } else if (distance <= 3.2 && elapsed[0] > 30) {
-                // Safe fallback for cramped ceilings/obstructed arcs: still use the actual
-                // melee attack API rather than fake damage, though a smash may not be possible.
+            } else if (distance <= 2.7 && elapsed[0] >= 45) {
+                // In low ceilings, do not keep the player circling indefinitely.
+                // The close-range normal attack still works, though it may not be a smash.
                 attacked[0] = true;
                 grapplingPlayers.remove(id);
                 task.cancel();
@@ -361,10 +372,15 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private int countTotems(Player player) {
         int count = 0;
         for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && item.getType() == Material.TOTEM_OF_UNDYING) {
-                count += item.getAmount();
-            }
+            if (item != null && item.getType() == Material.TOTEM_OF_UNDYING) count += item.getAmount();
         }
+        for (ItemStack item : player.getInventory().getArmorContents()) {
+            if (item != null && item.getType() == Material.TOTEM_OF_UNDYING) count += item.getAmount();
+        }
+        ItemStack offhand = player.getInventory().getItemInOffHand();
+        if (offhand.getType() == Material.TOTEM_OF_UNDYING) count += offhand.getAmount();
+        ItemStack cursor = player.getItemOnCursor();
+        if (cursor != null && cursor.getType() == Material.TOTEM_OF_UNDYING) count += cursor.getAmount();
         return count;
     }
 
