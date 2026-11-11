@@ -88,6 +88,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         ));
         meta.setCustomModelData(11001);
         meta.setItemModel(new NamespacedKey("universalweapons", "corrupted_calamity"));
+        // Keep the custom purple/charcoal texture visible instead of the animated
+        // enchantment glint obscuring the 3D model. Enchantments still work normally.
+        meta.setEnchantmentGlintOverride(false);
         meta.addEnchant(org.bukkit.enchantments.Enchantment.DENSITY, 5, true);
         meta.addEnchant(org.bukkit.enchantments.Enchantment.WIND_BURST, 2, true);
         meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 3, true);
