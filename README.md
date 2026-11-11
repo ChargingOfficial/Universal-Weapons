@@ -31,7 +31,7 @@ Use `/weapon` to receive the mace. It requires the `universalweapons.weapon` per
 | Corrupted Dash | Right-click while holding the mace | Launches you in the direction you face with a dense purple particle ribbon that follows your movement. 1.8-second cooldown. |
 | Void Grapple | Sneak + right-click while looking at another player | Shows one particle tether at activation, then pulls you toward the target with smooth horizontal steering. Steering stops when you reach or pass the target, without freezing your existing momentum. It does not perform an automatic mace hit. Uses a chain sound. 3.5-second cooldown. |
 | Double Strike | Every third qualifying mace hit | Performs a separate 20-damage follow-up on the next server tick, with the target's hurt cooldown reset so a second Totem can pop after the first hit. The attacker is never frozen and gravity or movement is not modified. |
-| Shield Shatter | Hit a player actively blocking with a shield | Completely removes the shield from the hand being used, plays a shield-break effect, and allows the mace hit to continue instead of being blocked. Normal mace smash and Wind Burst processing are left enabled. |
+| Shield Shatter | Hit a player actively blocking with a shield | Completely removes the shield from the hand being used. The plugin also triggers a Wind Burst-style upward launch and gust effect using the mace's Wind Burst level, so the effect still occurs on shield-breaking hits. |
 
 
 Damage values are Minecraft damage points (2 points equal one full heart before armor and other mitigation).
@@ -66,9 +66,9 @@ The Paper API is a provided dependency and is not bundled into the plugin JAR.
 
 Pushes to `main`, pull requests targeting `main`, and manual workflow runs build the project with Java 21 and Maven. A successful run uploads the plugin JAR as a workflow artifact.
 
-## Resource pack
+## Appearance
 
-The item sets custom model data `11001`. A matching Java 1.21.11 resource pack ZIP is provided separately with this update. Enable it on the client to display the purple-and-obsidian Corrupted Calamity model; without it, the item uses the normal Minecraft mace appearance.
+Corrupted Calamity uses the normal Minecraft mace appearance. No custom resource pack is required.
 
 ## Permission
 
@@ -89,19 +89,10 @@ README.md
 ## Implementation notes
 
 - The weapon is identified by a persistent data tag, not its display name.
-- A player actively blocking with a shield loses that shield completely when hit by Corrupted Calamity. The handler clears the active hand's shield, un-cancels the shield-blocked damage, and does not cancel the vanilla mace impact path, allowing Wind Burst to trigger normally when its usual smash conditions are met.
+- A player actively blocking with a shield loses that shield completely when hit by Corrupted Calamity. Because shield blocking can suppress the normal post-hit enchantment callback, the plugin schedules a Wind Burst-style launch after the damage event. Its upward force scales with the mace's Wind Burst enchantment level.
 - Off-hand interaction events are ignored to prevent abilities firing twice.
 - Ability damage is guarded so it does not increment the regular-hit counter.
 - Double Strike does not alter gravity or velocity. It delivers its separate 20-damage follow-up on the next server tick and resets hurt immunity immediately before that hit.
 - `/stuck` is available to all players and force-restores gravity and clears residual velocity.
 - Grapple launches the player toward the targeted player and displays its particle tether only once when activated. It steers toward the target until the player reaches or passes them, then ends the steering task while preserving current momentum. It never attacks automatically; the player must perform any melee hit themselves.
 - Test on a backup or staging server before deploying to a live server.
-
-## Corrupted Calamity 3D Resource Pack
-
-The /weapon item uses the 1.21.11 item model component `universalweapons:corrupted_calamity`.
-Install the matching Corrupted Calamity 3D resource pack in the Minecraft client's
-`.minecraft/resourcepacks` folder and enable it in Resource Packs. The pack includes
-a custom layered 3D mace model, purple corruption details, and separate first-/third-person
-hand transforms. Custom Model Data 11001 is retained on the item, but 1.21.11 selects
-the resource-pack model through the item model component.
