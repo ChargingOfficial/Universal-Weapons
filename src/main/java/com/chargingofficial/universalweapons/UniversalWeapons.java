@@ -24,12 +24,15 @@ import org.bukkit.util.Vector;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
 
 public final class UniversalWeapons extends JavaPlugin implements Listener, CommandExecutor {
     private NamespacedKey weaponKey;
     private final Map<UUID, Integer> hitCounts = new HashMap<>();
     private final Map<UUID, Long> dashCooldowns = new HashMap<>();
     private final Map<UUID, Long> grappleCooldowns = new HashMap<>();
+    private final Set<UUID> bonusHitInProgress = new HashSet<>();
 
     private static final long DASH_COOLDOWN_MS = 1800;
     private static final long GRAPPLE_COOLDOWN_MS = 3500;
@@ -49,6 +52,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         hitCounts.clear();
         dashCooldowns.clear();
         grappleCooldowns.clear();
+        bonusHitInProgress.clear();
     }
 
     private ItemStack createCalamity() {
@@ -132,7 +136,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         player.teleport(destination);
         player.getWorld().spawnParticle(Particle.PORTAL, target.getLocation().add(0, 1, 0), 45, 0.6, 0.8, 0.6, 0.25);
         player.getWorld().playSound(target.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1f, 0.7f);
-        player.attack(target);
+        target.damage(HIT_DAMAGE, player);
         player.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0), 18, 0.35, 0.45, 0.35, 0.15);
     }
 
@@ -140,11 +144,17 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     public void onMaceHit(EntityDamageByEntityEvent event) {
         if (!(event.getDamager() instanceof Player player) || !(event.getEntity() instanceof LivingEntity victim)) return;
         if (!isCalamity(player.getInventory().getItemInMainHand())) return;
+        if (bonusHitInProgress.contains(player.getUniqueId())) return;
         int hits = hitCounts.merge(player.getUniqueId(), 1, Integer::sum);
         if (hits % 3 == 0) {
             Bukkit.getScheduler().runTask(this, () -> {
                 if (!victim.isValid() || victim.isDead()) return;
-                victim.damage(BONUS_HIT_DAMAGE, player);
+                bonusHitInProgress.add(player.getUniqueId());
+                try {
+                    victim.damage(BONUS_HIT_DAMAGE, player);
+                } finally {
+                    bonusHitInProgress.remove(player.getUniqueId());
+                }
                 victim.getWorld().spawnParticle(Particle.SWEEP_ATTACK, victim.getLocation().add(0, 1, 0), 1);
                 victim.getWorld().spawnParticle(Particle.DRAGON_BREATH, victim.getLocation().add(0, 1, 0), 22, 0.35, 0.45, 0.35, 0.025);
                 victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.9f, 0.65f);
