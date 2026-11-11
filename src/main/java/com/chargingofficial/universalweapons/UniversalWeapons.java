@@ -51,7 +51,8 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private final Map<UUID, Integer> hitCounts = new HashMap<>();
     private final Map<UUID, Long> dashReadyAt = new HashMap<>();
     private final Map<UUID, Long> grappleReadyAt = new HashMap<>();
-    private final Set<UUID> abilityDamageInProgress = new HashSet<>();\n    private final Set<UUID> grapplingPlayers = new HashSet<>();
+    private final Set<UUID> abilityDamageInProgress = new HashSet<>();
+    private final Set<UUID> grapplingPlayers = new HashSet<>();
 
     @Override
     public void onEnable() {
@@ -71,7 +72,8 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         hitCounts.clear();
         dashReadyAt.clear();
         grappleReadyAt.clear();
-        abilityDamageInProgress.clear();\n        grapplingPlayers.clear();
+        abilityDamageInProgress.clear();
+        grapplingPlayers.clear();
     }
 
     private ItemStack createCalamity() {
