@@ -35,61 +35,70 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+/**
+ * Paper 1.21.11 implementation of the Corrupted Calamity weapon.
+ * All world/entity changes are performed synchronously on the server thread.
+ */
 public final class UniversalWeapons extends JavaPlugin implements Listener, CommandExecutor {
-    private static final long DASH_COOLDOWN_MS = 1800L;
-    private static final long GRAPPLE_COOLDOWN_MS = 3500L;
+    private static final long DASH_COOLDOWN_MS = 1_800L;
+    private static final long GRAPPLE_COOLDOWN_MS = 3_500L;
     private static final double GRAPPLE_RANGE = 24.0;
     private static final double BONUS_HIT_DAMAGE = 6.0;
     private static final double SLAM_DAMAGE = 5.0;
+    private static final double SLAM_MIN_FALL_DISTANCE = 3.0;
 
     private NamespacedKey weaponKey;
     private final Map<UUID, Integer> hitCounts = new HashMap<>();
-    private final Map<UUID, Long> dashCooldowns = new HashMap<>();
-    private final Map<UUID, Long> grappleCooldowns = new HashMap<>();
-    // Extra damage caused by abilities must not count as ordinary mace swings.
+    private final Map<UUID, Long> dashReadyAt = new HashMap<>();
+    private final Map<UUID, Long> grappleReadyAt = new HashMap<>();
     private final Set<UUID> abilityDamageInProgress = new HashSet<>();
 
     @Override
     public void onEnable() {
         weaponKey = new NamespacedKey(this, "corrupted_calamity");
+
         if (getCommand("weapon") == null) {
-            getLogger().severe("The /weapon command is missing from plugin.yml; disabling plugin.");
+            getLogger().severe("Missing /weapon declaration in plugin.yml. Disabling plugin.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
+
         getCommand("weapon").setExecutor(this);
         getServer().getPluginManager().registerEvents(this, this);
-        getLogger().info("Universal Weapons enabled.");
+        getLogger().info("Universal Weapons enabled for Paper 1.21.11.");
     }
 
     @Override
     public void onDisable() {
         hitCounts.clear();
-        dashCooldowns.clear();
-        grappleCooldowns.clear();
+        dashReadyAt.clear();
+        grappleReadyAt.clear();
         abilityDamageInProgress.clear();
     }
 
     private ItemStack createCalamity() {
-        ItemStack mace = new ItemStack(Material.MACE);
-        ItemMeta meta = mace.getItemMeta();
-        meta.setDisplayName(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD + "Corrupted Calamity");
+        ItemStack item = new ItemStack(Material.MACE);
+        ItemMeta meta = item.getItemMeta();
+
+        meta.setDisplayName(ChatColor.DARK_PURPLE.toString() + ChatColor.BOLD + "Corrupted Calamity");
         meta.setLore(List.of(
                 ChatColor.GRAY + "A relic consumed by the void.",
                 ChatColor.LIGHT_PURPLE + "Right-click: " + ChatColor.WHITE + "Corrupted Dash",
                 ChatColor.LIGHT_PURPLE + "Sneak + right-click: " + ChatColor.WHITE + "Void Grapple",
-                ChatColor.DARK_PURPLE + "Every third hit strikes twice."
+                ChatColor.DARK_PURPLE + "Every third hit unleashes a second strike.",
+                ChatColor.GRAY + "A fall of 3+ blocks triggers Ground Shatter."
         ));
         meta.setCustomModelData(11001);
         meta.getPersistentDataContainer().set(weaponKey, PersistentDataType.BYTE, (byte) 1);
-        mace.setItemMeta(meta);
-        return mace;
+        item.setItemMeta(meta);
+        return item;
     }
 
     private boolean isCalamity(ItemStack item) {
         if (item == null || item.getType() != Material.MACE || !item.hasItemMeta()) {
             return false;
         }
+
         Byte marker = item.getItemMeta().getPersistentDataContainer()
                 .get(weaponKey, PersistentDataType.BYTE);
         return marker != null && marker == (byte) 1;
@@ -102,15 +111,19 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             return true;
         }
 
-        Map<Integer, ItemStack> leftovers = player.getInventory().addItem(createCalamity());
-        leftovers.values().forEach(item ->
-                player.getWorld().dropItemNaturally(player.getLocation(), item));
+        ItemStack weapon = createCalamity();
+        Map<Integer, ItemStack> leftovers = player.getInventory().addItem(weapon);
+        for (ItemStack leftover : leftovers.values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+        }
+
         player.sendMessage(ChatColor.LIGHT_PURPLE + "You received the Corrupted Calamity.");
         return true;
     }
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
+        // Bukkit fires this event once for each hand; ignore the off-hand copy.
         if (event.getHand() != EquipmentSlot.HAND || !isCalamity(event.getItem())) {
             return;
         }
@@ -131,12 +144,13 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
     private void dash(Player player) {
         long now = System.currentTimeMillis();
-        if (dashCooldowns.getOrDefault(player.getUniqueId(), 0L) > now) {
+        UUID id = player.getUniqueId();
+        if (dashReadyAt.getOrDefault(id, 0L) > now) {
             player.sendActionBar(ChatColor.DARK_PURPLE + "Corrupted Dash is recharging.");
             return;
         }
 
-        dashCooldowns.put(player.getUniqueId(), now + DASH_COOLDOWN_MS);
+        dashReadyAt.put(id, now + DASH_COOLDOWN_MS);
         Vector direction = player.getLocation().getDirection().normalize();
         Vector velocity = direction.multiply(1.65);
         velocity.setY(Math.max(0.28, velocity.getY()));
@@ -151,14 +165,16 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
     private void grapple(Player player) {
         long now = System.currentTimeMillis();
-        if (grappleCooldowns.getOrDefault(player.getUniqueId(), 0L) > now) {
+        UUID id = player.getUniqueId();
+        if (grappleReadyAt.getOrDefault(id, 0L) > now) {
             player.sendActionBar(ChatColor.DARK_PURPLE + "Void Grapple is recharging.");
             return;
         }
 
+        Location eye = player.getEyeLocation();
         RayTraceResult trace = player.getWorld().rayTraceEntities(
-                player.getEyeLocation(),
-                player.getEyeLocation().getDirection(),
+                eye,
+                eye.getDirection(),
                 GRAPPLE_RANGE,
                 0.8,
                 entity -> entity instanceof Player && entity != player
@@ -169,40 +185,45 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             return;
         }
 
-        grappleCooldowns.put(player.getUniqueId(), now + GRAPPLE_COOLDOWN_MS);
-
-        // Place the grappler just beside the target instead of inside their hitbox.
-        Vector offset = target.getLocation().getDirection().normalize().multiply(1.35);
-        Location destination = target.getLocation().clone().subtract(offset);
-        destination.setY(target.getLocation().getY());
-        destination.setDirection(target.getLocation().toVector().subtract(destination.toVector()));
-        player.teleport(destination);
-
-        World world = target.getWorld();
-        world.spawnParticle(Particle.PORTAL, target.getLocation().add(0, 1, 0),
-                45, 0.6, 0.8, 0.6, 0.25);
-        world.playSound(target.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.7f);
-
-        abilityDamageInProgress.add(player.getUniqueId());
-        try {
-            target.damage(8.0, player);
-        } finally {
-            abilityDamageInProgress.remove(player.getUniqueId());
+        Location targetLocation = target.getLocation();
+        Vector awayFromTarget = targetLocation.getDirection().setY(0).normalize();
+        if (awayFromTarget.lengthSquared() < 0.0001) {
+            awayFromTarget = new Vector(0, 0, 1);
         }
+
+        // Keep the player outside the target's hitbox and preserve the target's world.
+        Location destination = targetLocation.clone().subtract(awayFromTarget.multiply(1.35));
+        destination.setY(targetLocation.getY());
+        destination.setDirection(targetLocation.toVector().subtract(destination.toVector()));
+
+        if (!player.teleport(destination)) {
+            player.sendMessage(ChatColor.RED + "The grapple destination is unavailable.");
+            return;
+        }
+
+        grappleReadyAt.put(id, now + GRAPPLE_COOLDOWN_MS);
+        World world = target.getWorld();
+        Location effectLocation = target.getLocation().add(0, 1, 0);
+        world.spawnParticle(Particle.PORTAL, effectLocation, 45, 0.6, 0.8, 0.6, 0.25);
+        world.playSound(effectLocation, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.7f);
+
+        damageFromAbility(player, target, 8.0);
         world.spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
                 18, 0.35, 0.45, 0.35, 0.15);
     }
 
     @EventHandler
     public void onMaceHit(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Player player)
+        if (event.isCancelled()
+                || !(event.getDamager() instanceof Player player)
                 || !(event.getEntity() instanceof LivingEntity victim)
                 || !isCalamity(player.getInventory().getItemInMainHand())
                 || abilityDamageInProgress.contains(player.getUniqueId())) {
             return;
         }
 
-        int hits = hitCounts.merge(player.getUniqueId(), 1, Integer::sum);
+        UUID id = player.getUniqueId();
+        int hits = hitCounts.merge(id, 1, Integer::sum);
         if (hits % 3 != 0) {
             return;
         }
@@ -213,28 +234,23 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 return;
             }
 
-            abilityDamageInProgress.add(player.getUniqueId());
-            try {
-                victim.damage(BONUS_HIT_DAMAGE, player);
-            } finally {
-                abilityDamageInProgress.remove(player.getUniqueId());
-            }
-
+            damageFromAbility(player, victim, BONUS_HIT_DAMAGE);
             Location hitLocation = victim.getLocation().add(0, 1, 0);
-            victim.getWorld().spawnParticle(Particle.SWEEP_ATTACK, hitLocation, 1);
-            victim.getWorld().spawnParticle(Particle.DRAGON_BREATH, hitLocation,
+            World world = victim.getWorld();
+            world.spawnParticle(Particle.SWEEP_ATTACK, hitLocation, 1);
+            world.spawnParticle(Particle.DRAGON_BREATH, hitLocation,
                     22, 0.35, 0.45, 0.35, 0.025);
-            victim.getWorld().playSound(hitLocation,
-                    Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.9f, 0.65f);
+            world.playSound(hitLocation, Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.9f, 0.65f);
         });
     }
 
     @EventHandler
     public void onGroundSlam(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player player)
+        if (event.isCancelled()
+                || !(event.getEntity() instanceof Player player)
                 || event.getCause() != EntityDamageEvent.DamageCause.FALL
                 || !isCalamity(player.getInventory().getItemInMainHand())
-                || player.getFallDistance() < 3.0f) {
+                || player.getFallDistance() < SLAM_MIN_FALL_DISTANCE) {
             return;
         }
 
@@ -252,16 +268,20 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 8, 1.2, 0.1, 1.2, 0);
 
         for (Entity entity : world.getNearbyEntities(center, 3.2, 1.8, 3.2)) {
-            if (!(entity instanceof LivingEntity living) || entity == player) {
-                continue;
+            if (entity instanceof LivingEntity living && entity != player) {
+                damageFromAbility(player, living, SLAM_DAMAGE);
+                living.setVelocity(living.getVelocity().add(new Vector(0, 0.35, 0)));
             }
-            abilityDamageInProgress.add(player.getUniqueId());
-            try {
-                living.damage(SLAM_DAMAGE, player);
-            } finally {
-                abilityDamageInProgress.remove(player.getUniqueId());
-            }
-            living.setVelocity(living.getVelocity().add(new Vector(0, 0.35, 0)));
+        }
+    }
+
+    private void damageFromAbility(Player source, LivingEntity target, double damage) {
+        UUID id = source.getUniqueId();
+        abilityDamageInProgress.add(id);
+        try {
+            target.damage(damage, source);
+        } finally {
+            abilityDamageInProgress.remove(id);
         }
     }
 }
