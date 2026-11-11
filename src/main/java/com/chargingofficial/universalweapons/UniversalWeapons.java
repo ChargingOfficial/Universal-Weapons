@@ -20,6 +20,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -27,6 +28,7 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -53,22 +55,38 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private final Map<UUID, Long> grappleReadyAt = new HashMap<>();
     private final Set<UUID> abilityDamageInProgress = new HashSet<>();
     private final Set<UUID> grapplingPlayers = new HashSet<>();
+    private final Map<UUID, Boolean> suspendedGravity = new HashMap<>();
+    private final Map<UUID, BukkitTask> doubleStrikeTasks = new HashMap<>();
 
     @Override
     public void onEnable() {
         weaponKey = new NamespacedKey(this, "corrupted_calamity");
-        if (getCommand("weapon") == null) {
-            getLogger().severe("Missing /weapon declaration in plugin.yml. Disabling plugin.");
+        if (getCommand("weapon") == null || getCommand("stuck") == null) {
+            getLogger().severe("Missing /weapon or /stuck declaration in plugin.yml. Disabling plugin.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
         getCommand("weapon").setExecutor(this);
+        getCommand("stuck").setExecutor(this);
         getServer().getPluginManager().registerEvents(this, this);
         getLogger().info("Universal Weapons enabled for Paper 1.21.11.");
     }
 
     @Override
     public void onDisable() {
+        for (UUID id : new HashSet<>(suspendedGravity.keySet())) {
+            Player player = Bukkit.getPlayer(id);
+            if (player != null && player.isOnline()) {
+                player.setGravity(true);
+                player.setFallDistance(0);
+                player.setVelocity(new Vector(0, 0, 0));
+            }
+        }
+        for (BukkitTask task : doubleStrikeTasks.values()) {
+            task.cancel();
+        }
+        doubleStrikeTasks.clear();
+        suspendedGravity.clear();
         hitCounts.clear();
         dashReadyAt.clear();
         grappleReadyAt.clear();
@@ -112,6 +130,15 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage(ChatColor.RED + "Only players can use this command.");
+            return true;
+        }
+
+        if (command.getName().equalsIgnoreCase("stuck")) {
+            releaseDoubleStrikeSuspension(player, true);
+            player.setGravity(true);
+            player.setFallDistance(0);
+            player.setVelocity(new Vector(0, 0, 0));
+            player.sendMessage(ChatColor.GREEN + "Your movement has been reset. Gravity restored.");
             return true;
         }
 
@@ -310,8 +337,13 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         }
 
         player.sendActionBar(ChatColor.LIGHT_PURPLE + "CALAMITY: DOUBLE STRIKE!");
-        // Suspend the attacker briefly, then release the second hit as a separate event.
-        boolean hadGravity = player.hasGravity();
+        UUID attackerId = player.getUniqueId();
+
+        // Do not stack suspension timers. Each suspension has one guaranteed cleanup path.
+        if (suspendedGravity.containsKey(attackerId)) {
+            return;
+        }
+        suspendedGravity.put(attackerId, player.hasGravity());
         player.setGravity(false);
         player.setVelocity(new Vector(0, 0, 0));
         player.setFallDistance(0);
@@ -320,16 +352,20 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         player.getWorld().spawnParticle(Particle.PORTAL, chargeLocation, 28, 0.35, 0.45, 0.35, 0.12);
         player.getWorld().spawnParticle(Particle.DRAGON_BREATH, chargeLocation, 18, 0.25, 0.35, 0.25, 0.025);
 
-        Bukkit.getScheduler().runTaskLater(this, () -> {
-            if (player.isOnline() && player.isValid()) {
-                player.setGravity(hadGravity);
-                player.setVelocity(new Vector(0, -0.12, 0));
+        BukkitTask task = Bukkit.getScheduler().runTaskLater(this, () -> {
+            doubleStrikeTasks.remove(attackerId);
+            // /stuck, disconnect cleanup, or plugin shutdown may already have released them.
+            if (!suspendedGravity.containsKey(attackerId)) {
+                return;
             }
-            if (!player.isOnline() || !victim.isValid() || victim.isDead()
+            releaseDoubleStrikeSuspension(player, false);
+
+            if (!player.isOnline() || !player.isValid() || !victim.isValid() || victim.isDead()
                     || !player.getWorld().equals(victim.getWorld())) {
                 return;
             }
 
+            player.setVelocity(new Vector(0, -0.12, 0));
             player.swingMainHand();
             victim.setNoDamageTicks(0);
             damageFromAbility(player, victim, BONUS_HIT_DAMAGE);
@@ -342,6 +378,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             world.spawnParticle(Particle.CRIT, hitLocation, 24, 0.3, 0.4, 0.3, 0.14);
             world.playSound(hitLocation, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.55f);
         }, DOUBLE_STRIKE_DELAY_TICKS);
+        doubleStrikeTasks.put(attackerId, task);
     }
 
     @EventHandler
@@ -370,6 +407,32 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             if (entity instanceof LivingEntity living && entity != player) {
                 damageFromAbility(player, living, SLAM_DAMAGE);
                 living.setVelocity(living.getVelocity().add(new Vector(0, 0.35, 0)));
+            }
+        }
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        releaseDoubleStrikeSuspension(event.getPlayer(), true);
+        grapplingPlayers.remove(event.getPlayer().getUniqueId());
+    }
+
+    /**
+     * Restores the gravity state captured before Double Strike and cancels its pending timer.
+     * When forced (for /stuck, quit, or shutdown), also clears residual vertical movement.
+     */
+    private void releaseDoubleStrikeSuspension(Player player, boolean clearVelocity) {
+        UUID id = player.getUniqueId();
+        Boolean previousGravity = suspendedGravity.remove(id);
+        BukkitTask task = doubleStrikeTasks.remove(id);
+        if (task != null) {
+            task.cancel();
+        }
+        if (player.isOnline() && player.isValid()) {
+            player.setGravity(previousGravity == null ? true : previousGravity);
+            player.setFallDistance(0);
+            if (clearVelocity) {
+                player.setVelocity(new Vector(0, 0, 0));
             }
         }
     }
