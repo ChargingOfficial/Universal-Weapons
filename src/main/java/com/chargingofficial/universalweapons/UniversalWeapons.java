@@ -87,10 +87,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 ChatColor.DARK_PURPLE + "Every third hit triggers an immediate second strike."
         ));
         meta.setCustomModelData(11001);
-        meta.setItemModel(new NamespacedKey("universalweapons", "corrupted_calamity"));
-        // Keep the custom purple/charcoal texture visible instead of the animated
-        // enchantment glint obscuring the 3D model. Enchantments still work normally.
-        meta.setEnchantmentGlintOverride(false);
+        // Use the vanilla Minecraft mace appearance; custom resource-pack model removed.
         meta.addEnchant(org.bukkit.enchantments.Enchantment.DENSITY, 5, true);
         meta.addEnchant(org.bukkit.enchantments.Enchantment.WIND_BURST, 2, true);
         meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 3, true);
@@ -335,6 +332,12 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 target.clearActiveItem();
                 target.broadcastSlotBreak(activeHand);
                 event.setCancelled(false);
+                // Shield blocking can suppress the vanilla mace post-hit enchantment
+                // callback even after the shield is removed. Reproduce Wind Burst here
+                // so a shield-shattering mace hit still launches its wielder.
+                int windBurstLevel = player.getInventory().getItemInMainHand()
+                        .getEnchantmentLevel(org.bukkit.enchantments.Enchantment.WIND_BURST);
+                triggerShieldBreakWindBurst(player, windBurstLevel);
                 target.getWorld().playSound(target.getLocation(), Sound.ITEM_SHIELD_BREAK, 1.0f, 0.85f);
                 target.getWorld().spawnParticle(Particle.CRIT, target.getLocation().add(0, 1, 0),
                         18, 0.35, 0.45, 0.35, 0.12);
@@ -373,6 +376,32 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     36, 0.35, 0.45, 0.35, 0.035);
             world.spawnParticle(Particle.CRIT, hitLocation, 24, 0.3, 0.4, 0.3, 0.14);
             world.playSound(hitLocation, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.55f);
+        });
+    }
+
+    private void triggerShieldBreakWindBurst(Player player, int level) {
+        if (level <= 0) {
+            return;
+        }
+
+        // Run after the incoming damage event has completed, preserving the mace hit.
+        Bukkit.getScheduler().runTask(this, () -> {
+            if (!player.isOnline() || !player.isValid() || player.isDead()) {
+                return;
+            }
+
+            // Scale the upward launch with the actual Wind Burst enchantment level.
+            Vector velocity = player.getVelocity();
+            double launch = 0.90 + (0.18 * (level - 1));
+            velocity.setY(Math.max(velocity.getY(), launch));
+            player.setVelocity(velocity);
+            player.setFallDistance(0);
+
+            Location burst = player.getLocation().add(0, 0.8, 0);
+            World world = player.getWorld();
+            world.playSound(burst, Sound.ITEM_MACE_SMASH_GROUND, 0.9f, 1.25f);
+            world.spawnParticle(Particle.GUST, burst, 18, 0.35, 0.25, 0.35, 0.12);
+            world.spawnParticle(Particle.CLOUD, burst, 14, 0.3, 0.2, 0.3, 0.08);
         });
     }
 
