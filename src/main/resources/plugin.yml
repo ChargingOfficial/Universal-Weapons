@@ -1,0 +1,14 @@
+name: UniversalWeapons
+version: 1.0.0
+main: com.chargingofficial.universalweapons.UniversalWeapons
+api-version: '1.21.11'
+description: Custom weapons and abilities, including Corrupted Calamity.
+commands:
+  weapon:
+    description: Gives you the Corrupted Calamity mace.
+    usage: /weapon
+    permission: universalweapons.weapon
+permissions:
+  universalweapons.weapon:
+    description: Allows the player to receive Corrupted Calamity.
+    default: op
