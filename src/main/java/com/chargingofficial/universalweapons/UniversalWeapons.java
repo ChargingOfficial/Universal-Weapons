@@ -7,6 +7,7 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
@@ -103,7 +104,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 ChatColor.LIGHT_PURPLE + "Shield Shatter: " + ChatColor.WHITE + "Breaks blocking shields with Wind Burst.",
                 ChatColor.DARK_PURPLE + "Every third hit triggers an immediate second strike."
         ));
-        meta.setCustomModelData(11001);
         // Use the vanilla Minecraft mace appearance; custom resource-pack model removed.
         meta.addEnchant(org.bukkit.enchantments.Enchantment.DENSITY, 5, true);
         meta.addEnchant(org.bukkit.enchantments.Enchantment.WIND_BURST, 2, true);
@@ -149,7 +149,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
         World world = player.getWorld();
         final int[] tick = {0};
-        BukkitTask task = Bukkit.getScheduler().runTaskTimer(this, scheduled -> {
+        BukkitRunnable ritualRunnable = new BukkitRunnable() {
+            @Override
+            public void run() {
             Location currentBlock = getRitualBlock(player);
             Location startingBlock = ritualBlocks.get(id);
             boolean stillAtRitual = currentBlock != null && startingBlock != null
@@ -159,7 +161,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     && currentBlock.getBlockZ() == startingBlock.getBlockZ();
 
             if (!isRitualReady(player) || !stillAtRitual || !player.getWorld().equals(world)) {
-                scheduled.cancel();
+                cancel();
                 ritualTasks.remove(id);
                 ritualBlocks.remove(id);
                 if (player.isOnline()) {
@@ -191,7 +193,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             }
 
             if (age >= 60) {
-                scheduled.cancel();
+                cancel();
                 ritualTasks.remove(id);
                 ritualBlocks.remove(id);
 
@@ -213,7 +215,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         ChatColor.LIGHT_PURPLE + "The Corrupted Calamity is yours",
                         10, 55, 20);
             }
-        }, 1L, 1L);
+            }
+        };
+        BukkitTask task = ritualRunnable.runTaskTimer(this, 1L, 1L);
         ritualTasks.put(id, task);
     }
 
