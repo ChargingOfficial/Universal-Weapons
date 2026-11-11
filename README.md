@@ -1,6 +1,6 @@
 # Universal Weapons
 
-Universal Weapons is a custom-weapon plugin for **Paper 1.21.11**. It currently adds **Corrupted Calamity**, a custom mace with movement, combat, and impact abilities.
+Universal Weapons is a custom-weapon plugin for **Paper 1.21.11**. It adds **Corrupted Calamity**, a custom mace with movement, combat, and impact abilities.
 
 ## Requirements
 
@@ -10,34 +10,36 @@ Universal Weapons is a custom-weapon plugin for **Paper 1.21.11**. It currently 
 | Java | 21 |
 | Build tool | Maven 3.9+ |
 
-This is a standard Bukkit/Paper plugin. It is not a mod and does not run on a vanilla server.
+This is a standard Bukkit/Paper plugin, not a client mod. It will not run on a vanilla server.
 
 ## Corrupted Calamity
 
-Give yourself the weapon in-game:
+Use `/weapon` to receive the mace. It requires the `universalweapons.weapon` permission, which is granted to operators by default. If your inventory is full, the item drops at your location.
 
-```
-/weapon
-```
+### Built-in enchantments
 
-The command requires `universalweapons.weapon`, granted to operators by default. If the inventory is full, the item drops safely at the player's location.
+- Density V
+- Wind Burst II
+- Unbreaking III
+- Mending I
+- Fire Aspect II
 
 ### Abilities
 
 | Ability | Input | Effect |
 |---|---|---|
-| Corrupted Dash | Right-click while holding the mace | Launches you in the direction you face. 1.8-second cooldown. |
-| Void Grapple | Sneak + right-click while looking at another player | Pulls you beside the player within 24 blocks and deals 8 damage. 3.5-second cooldown. |
-| Double Strike | Hit an entity with the mace | Every third qualifying hit triggers an additional 6 damage strike. |
-| Ground Shatter | Land after falling at least 3 blocks while holding the mace | Cancels fall damage, creates corrupted impact particles and damages nearby living entities for 5 damage. |
+| Corrupted Dash | Right-click while holding the mace | Launches you in the direction you face with a purple particle wake. 1.8-second cooldown. |
+| Void Grapple | Sneak + right-click while looking at another player | Fires a visible particle chain and pulls you toward the player. Deals 8 damage. 3.5-second cooldown. |
+| Double Strike | Every third qualifying mace hit | Performs one distinct follow-up swing and deals an additional 6 damage 2 ticks (0.1 seconds) after the first hit. |
+| Ground Shatter | Land after falling at least 3 blocks while holding the mace | Cancels fall damage, creates corrupted impact particles, and damages nearby living entities for 5 damage. |
 
 Damage values are Minecraft damage points (2 points equal one full heart before armor and other mitigation).
 
 ## Install
 
-1. Download the latest `Universal-Weapons-1.0.0` artifact from the repository's **Actions** tab.
+1. Download the latest successful build artifact from the repository's **Actions** tab.
 2. Stop your Paper 1.21.11 server.
-3. Put the downloaded JAR in the server's `plugins` folder.
+3. Put the plugin JAR in the server's `plugins` folder.
 4. Start the server and check the console for the plugin enable message.
 5. Run `/weapon` as an operator or a player with the permission.
 
@@ -59,13 +61,13 @@ target/Universal-Weapons-1.0.0.jar
 
 The Paper API is a provided dependency and is not bundled into the plugin JAR.
 
-## GitHub Actions build
+## GitHub Actions
 
-Every push to `main`, pull request targeting `main`, or manual workflow run builds the project with Java 21 and Maven. A successful run uploads the plugin JAR as an artifact named `Universal-Weapons-1.0.0`.
+Pushes to `main`, pull requests targeting `main`, and manual workflow runs build the project with Java 21 and Maven. A successful run uploads the plugin JAR as a workflow artifact.
 
 ## Resource pack
 
-The item currently sets custom model data `11001`. A matching resource-pack model and texture are not included yet, so without a compatible resource pack it uses the normal Minecraft mace appearance. Its abilities and persistent item tag still work.
+The item sets custom model data `11001`. A matching resource-pack model and texture are not included yet, so without a compatible resource pack it uses the normal Minecraft mace appearance. Its abilities, enchantments, and persistent item tag still work.
 
 ## Permission
 
@@ -85,8 +87,10 @@ README.md
 
 ## Implementation notes
 
-- The weapon is identified by a persistent data tag, not its display name. Renaming a normal mace does not grant the abilities.
+- The weapon is identified by a persistent data tag, not its display name.
 - Off-hand interaction events are ignored to prevent abilities firing twice.
 - Ability damage is guarded so it does not increment the regular-hit counter.
-- Ground Shatter uses particles and sound only; it does not change or break actual world blocks.
+- Double Strike is scheduled as a separate hit two server ticks after the triggering hit.
+- Grapple uses velocity to pull the player rather than teleporting them.
+- Ground Shatter uses particles and sound only; it does not break or modify world blocks.
 - Test on a backup or staging server before deploying to a live server.
