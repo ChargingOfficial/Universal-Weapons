@@ -8,6 +8,9 @@ commands:
     description: Gives you the Corrupted Calamity mace.
     usage: /weapon
     permission: universalweapons.weapon
+  stuck:
+    description: Restores gravity and clears movement if an ability leaves you stuck.
+    usage: /stuck
 permissions:
   universalweapons.weapon:
     description: Allows the player to receive Corrupted Calamity.
