@@ -68,7 +68,7 @@ Pushes to `main`, pull requests targeting `main`, and manual workflow runs build
 
 ## Resource pack
 
-The item sets custom model data `11001`. The matching Java 1.21.11 resource pack is available in the repository's `resource-pack/` folder and as a ZIP download. Enable it on the client to display the purple-and-obsidian Corrupted Calamity model; without it, the item uses the normal Minecraft mace appearance.
+The item sets custom model data `11001`. A matching Java 1.21.11 resource pack ZIP is provided separately with this update. Enable it on the client to display the purple-and-obsidian Corrupted Calamity model; without it, the item uses the normal Minecraft mace appearance.
 
 ## Permission
 
