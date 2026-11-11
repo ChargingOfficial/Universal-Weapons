@@ -31,6 +31,7 @@ Use `/weapon` to receive the mace. It requires the `universalweapons.weapon` per
 | Corrupted Dash | Right-click while holding the mace | Launches you in the direction you face with a dense purple particle ribbon that follows your movement. 1.8-second cooldown. |
 | Void Grapple | Sneak + right-click while looking at another player | Shows one particle tether at activation, then pulls you toward the target with smooth horizontal steering. Steering stops when you reach or pass the target, without freezing your existing momentum. It does not perform an automatic mace hit. Uses a chain sound. 3.5-second cooldown. |
 | Double Strike | Every third qualifying mace hit | Performs a separate 20-damage follow-up on the next server tick, with the target's hurt cooldown reset so a second Totem can pop after the first hit. The attacker is never frozen and gravity or movement is not modified. |
+| Shield Shatter | Hit a player actively blocking with a shield | Completely removes the shield from the hand being used, plays a shield-break effect, and allows the mace hit to continue instead of being blocked. Normal mace smash and Wind Burst processing are left enabled. |
 
 
 Damage values are Minecraft damage points (2 points equal one full heart before armor and other mitigation).
@@ -67,7 +68,7 @@ Pushes to `main`, pull requests targeting `main`, and manual workflow runs build
 
 ## Resource pack
 
-The item sets custom model data `11001`. A matching resource-pack model and texture are not included yet, so without a compatible resource pack it uses the normal Minecraft mace appearance. Its abilities, enchantments, and persistent item tag still work.
+The item sets custom model data `11001`. The matching Java 1.21.11 resource pack is available in the repository's `resource-pack/` folder and as a ZIP download. Enable it on the client to display the purple-and-obsidian Corrupted Calamity model; without it, the item uses the normal Minecraft mace appearance.
 
 ## Permission
 
@@ -88,6 +89,7 @@ README.md
 ## Implementation notes
 
 - The weapon is identified by a persistent data tag, not its display name.
+- A player actively blocking with a shield loses that shield completely when hit by Corrupted Calamity. The handler clears the active hand's shield, un-cancels the shield-blocked damage, and does not cancel the vanilla mace impact path, allowing Wind Burst to trigger normally when its usual smash conditions are met.
 - Off-hand interaction events are ignored to prevent abilities firing twice.
 - Ability damage is guarded so it does not increment the regular-hit counter.
 - Double Strike does not alter gravity or velocity. It delivers its separate 20-damage follow-up on the next server tick and resets hurt immunity immediately before that hit.
