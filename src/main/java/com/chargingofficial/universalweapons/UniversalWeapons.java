@@ -49,7 +49,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private static final double BONUS_HIT_DAMAGE = 20.0;
     private static final double SLAM_DAMAGE = 5.0;
     private static final long GROUND_SHATTER_COOLDOWN_MS = 450L;
-    private static final long DOUBLE_STRIKE_DELAY_TICKS = 6L;
+    private static final long DOUBLE_STRIKE_DELAY_TICKS = 10L;
 
     private NamespacedKey weaponKey;
     private final Map<UUID, Integer> hitCounts = new HashMap<>();
@@ -221,7 +221,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             player.sendMessage(ChatColor.RED + "Aim at an enemy player within 24 blocks to grapple.");
             return;
         }
-
         if (!player.getWorld().equals(target.getWorld())) {
             return;
         }
@@ -231,39 +230,35 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         player.getWorld().playSound(player.getLocation(), Sound.ENTITY_FISHING_BOBBER_THROW, 1.0f, 0.7f);
         player.sendActionBar(ChatColor.LIGHT_PURPLE + "VOID GRAPPLE!");
 
-        // Continuously reel the caster in, render the tether, and strike once in range.
+        // Pull horizontally only. Preserve vertical velocity and fall distance so normal
+        // gravity and the mace's falling-damage calculation are never interrupted.
         final int[] elapsed = {0};
         Bukkit.getScheduler().runTaskTimer(this, task -> {
             if (!player.isOnline() || !player.isValid() || !target.isValid() || target.isDead()
                     || !target.isOnline() || !player.getWorld().equals(target.getWorld())
-                    || elapsed[0]++ >= 50) {
+                    || elapsed[0]++ >= 60) {
                 grapplingPlayers.remove(id);
                 task.cancel();
-                if (player.isOnline()) {
-                    player.setFallDistance(0);
-                }
                 return;
             }
 
-            Location playerEye = player.getEyeLocation();
-            Location targetEye = target.getEyeLocation();
-            drawParticleChain(playerEye, targetEye);
+            drawParticleChain(player.getEyeLocation(), target.getEyeLocation());
+            Vector offset = target.getLocation().toVector().subtract(player.getLocation().toVector());
+            Vector horizontal = new Vector(offset.getX(), 0, offset.getZ());
+            double horizontalDistance = horizontal.length();
+            double distance = player.getLocation().distance(target.getLocation());
 
-            Vector toTarget = target.getLocation().toVector().subtract(player.getLocation().toVector());
-            double distance = toTarget.length();
-            if (distance <= 2.7) {
+            if (distance <= 2.6 || horizontalDistance <= 1.4) {
                 grapplingPlayers.remove(id);
                 task.cancel();
-
-                Vector facing = target.getLocation().toVector().subtract(player.getLocation().toVector());
-                if (facing.lengthSquared() > 0.001) {
-                    player.setVelocity(new Vector(0, Math.max(0, player.getVelocity().getY()), 0));
+                // No teleport or velocity reset at the end of the pull.
+                Vector face = target.getLocation().toVector().subtract(player.getLocation().toVector());
+                face.setY(0);
+                if (face.lengthSquared() > 0.001) {
                     Location look = player.getLocation();
-                    look.setDirection(facing);
+                    look.setDirection(face);
                     player.teleport(look);
                 }
-
-                // The grapple's finishing strike is a real, separate damage event.
                 player.swingMainHand();
                 target.setNoDamageTicks(0);
                 damageFromAbility(player, target, 8.0);
@@ -276,29 +271,25 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 return;
             }
 
-            // Pull horizontally toward the target while letting gravity create a natural arc.
-            // Vertical steering is deliberately gentle rather than aiming along a straight 3D line.
-            Vector horizontal = new Vector(toTarget.getX(), 0, toTarget.getZ());
-            Vector current = player.getVelocity();
-            double verticalGuide = 0.0;
-            if (toTarget.getY() < -1.5) {
-                verticalGuide = -0.42; // drift/fall toward a target below
-            } else if (toTarget.getY() > 1.5) {
-                verticalGuide = 0.28; // a modest lift when the target is above
+            if (horizontalDistance > 0.001) {
+                Vector direction = horizontal.multiply(1.0 / horizontalDistance);
+                Vector current = player.getVelocity();
+                // Small acceleration plus a speed cap gives a steady reel instead of
+                // repeatedly snapping the player's entire velocity toward the target.
+                Vector nextHorizontal = new Vector(
+                        current.getX() * 0.78 + direction.getX() * 0.16,
+                        0,
+                        current.getZ() * 0.78 + direction.getZ() * 0.16
+                );
+                double speed = nextHorizontal.length();
+                if (speed > 0.82) {
+                    nextHorizontal.multiply(0.82 / speed);
+                }
+                player.setVelocity(new Vector(nextHorizontal.getX(), current.getY(), nextHorizontal.getZ()));
             }
-            Vector smoothVelocity = new Vector(
-                    current.getX() * 0.30 + (horizontal.lengthSquared() > 0.001
-                            ? horizontal.clone().normalize().getX() * 0.92 : 0),
-                    current.getY() * 0.78 + verticalGuide * 0.22,
-                    current.getZ() * 0.30 + (horizontal.lengthSquared() > 0.001
-                            ? horizontal.clone().normalize().getZ() * 0.92 : 0)
-            );
-            if (smoothVelocity.getY() < -0.65) smoothVelocity.setY(-0.65);
-            if (smoothVelocity.getY() > 0.45) smoothVelocity.setY(0.45);
-            player.setVelocity(smoothVelocity);
-            player.setFallDistance(0);
+
             player.getWorld().spawnParticle(Particle.PORTAL, player.getLocation().add(0, 0.8, 0),
-                    5, 0.22, 0.3, 0.22, 0.04);
+                    4, 0.16, 0.22, 0.16, 0.025);
         }, 0L, 1L);
     }
 
@@ -373,7 +364,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
         Location impact = victim.getLocation();
         World world = impact.getWorld();
-        world.playSound(impact, Sound.ENTITY_GENERIC_EXPLODE, 0.8f, 1.35f);
+        world.playSound(impact, Sound.ENTITY_GENERIC_EXPLODE, 0.9f, 1.25f);
         world.playSound(impact, Sound.BLOCK_DEEPSLATE_BREAK, 1.0f, 0.7f);
         world.spawnParticle(Particle.EXPLOSION, impact.clone().add(0, 0.25, 0), 1);
         world.spawnParticle(Particle.BLOCK, impact, 55, 1.0, 0.25, 1.0, 0.18,
@@ -381,29 +372,46 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         world.spawnParticle(Particle.DRAGON_BREATH, impact, 35, 0.9, 0.35, 0.9, 0.035);
         world.spawnParticle(Particle.SWEEP_ATTACK, impact.clone().add(0, 0.2, 0), 5, 0.9, 0.1, 0.9, 0);
 
-        // Small 3x3-ish crater: only ordinary solid blocks, never tile entities or bedrock-like blocks.
-        int centerX = impact.getBlockX();
-        int centerY = impact.getBlockY() - 1;
-        int centerZ = impact.getBlockZ();
+        // Find the real floor beneath the victim, even if the hit has knocked them upward.
+        int floorY = impact.getBlockY() - 1;
+        boolean foundFloor = false;
+        for (int y = impact.getBlockY() - 1; y >= Math.max(world.getMinHeight(), impact.getBlockY() - 6); y--) {
+            Block candidate = world.getBlockAt(impact.getBlockX(), y, impact.getBlockZ());
+            if (isShatterable(candidate)) {
+                floorY = y;
+                foundFloor = true;
+                break;
+            }
+        }
+        if (!foundFloor) {
+            return;
+        }
+
+        // A compact 3x3 crater, with a two-block-deep center.
         for (int x = -1; x <= 1; x++) {
             for (int z = -1; z <= 1; z++) {
-                int depth = (Math.abs(x) + Math.abs(z) == 0) ? 2 : 1;
+                int depth = (x == 0 && z == 0) ? 2 : 1;
                 for (int y = 0; y < depth; y++) {
-                    Block block = world.getBlockAt(centerX + x, centerY - y, centerZ + z);
-                    Material type = block.getType();
-                    if (type.isAir() || !type.isSolid() || block.getState() instanceof TileState
-                            || type == Material.BEDROCK || type == Material.BARRIER
-                            || type == Material.END_PORTAL_FRAME || type == Material.REINFORCED_DEEPSLATE) {
+                    Block block = world.getBlockAt(impact.getBlockX() + x, floorY - y,
+                            impact.getBlockZ() + z);
+                    if (!isShatterable(block)) {
                         continue;
                     }
                     BlockBreakEvent breakEvent = new BlockBreakEvent(block, player);
                     Bukkit.getPluginManager().callEvent(breakEvent);
                     if (!breakEvent.isCancelled()) {
-                        block.breakNaturally(player.getInventory().getItemInMainHand());
+                        block.breakNaturally();
                     }
                 }
             }
         }
+    }
+
+    private boolean isShatterable(Block block) {
+        Material type = block.getType();
+        return !type.isAir() && type.isSolid() && !(block.getState() instanceof TileState)
+                && type != Material.BEDROCK && type != Material.BARRIER
+                && type != Material.END_PORTAL_FRAME && type != Material.REINFORCED_DEEPSLATE;
     }
 
     @EventHandler
