@@ -96,3 +96,12 @@ README.md
 - `/stuck` is available to all players and force-restores gravity and clears residual velocity.
 - Grapple launches the player toward the targeted player and displays its particle tether only once when activated. It steers toward the target until the player reaches or passes them, then ends the steering task while preserving current momentum. It never attacks automatically; the player must perform any melee hit themselves.
 - Test on a backup or staging server before deploying to a live server.
+
+## Corrupted Calamity 3D Resource Pack
+
+The /weapon item uses the 1.21.11 item model component `universalweapons:corrupted_calamity`.
+Install the matching Corrupted Calamity 3D resource pack in the Minecraft client's
+`.minecraft/resourcepacks` folder and enable it in Resource Packs. The pack includes
+a custom layered 3D mace model, purple corruption details, and separate first-/third-person
+hand transforms. Custom Model Data 11001 is retained on the item, but 1.21.11 selects
+the resource-pack model through the item model component.
