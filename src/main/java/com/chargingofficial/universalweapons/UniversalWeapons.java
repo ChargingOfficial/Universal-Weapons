@@ -87,6 +87,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 ChatColor.DARK_PURPLE + "Every third hit triggers an immediate second strike."
         ));
         meta.setCustomModelData(11001);
+        meta.setItemModel(new NamespacedKey("universalweapons", "corrupted_calamity"));
         meta.addEnchant(org.bukkit.enchantments.Enchantment.DENSITY, 5, true);
         meta.addEnchant(org.bukkit.enchantments.Enchantment.WIND_BURST, 2, true);
         meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 3, true);
