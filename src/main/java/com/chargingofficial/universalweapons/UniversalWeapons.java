@@ -251,14 +251,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             if (distance <= 2.6 || horizontalDistance <= 1.4) {
                 grapplingPlayers.remove(id);
                 task.cancel();
-                // No teleport or velocity reset at the end of the pull.
-                Vector face = target.getLocation().toVector().subtract(player.getLocation().toVector());
-                face.setY(0);
-                if (face.lengthSquared() > 0.001) {
-                    Location look = player.getLocation();
-                    look.setDirection(face);
-                    player.teleport(look);
-                }
+                // Do not teleport or change velocity at the end of the pull.
                 player.swingMainHand();
                 target.setNoDamageTicks(0);
                 damageFromAbility(player, target, 8.0);
