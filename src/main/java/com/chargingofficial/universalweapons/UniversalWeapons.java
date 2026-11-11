@@ -297,8 +297,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         }
 
         player.sendActionBar(ChatColor.LIGHT_PURPLE + "CALAMITY: DOUBLE STRIKE!");
-        // Delay by two ticks so this is a distinct follow-up hit, not extra damage
-        // folded into the original hit. The ability guard prevents recursion.
+        // This is a second damage event, not bonus damage merged into the first hit.
+        // Clearing the vanilla hurt timer allows it to land immediately and can
+        // consume a second Totem after the original hit consumed the first.
         Bukkit.getScheduler().runTaskLater(this, () -> {
             if (!player.isOnline() || !victim.isValid() || victim.isDead()
                     || !player.getWorld().equals(victim.getWorld())) {
@@ -306,13 +307,16 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             }
 
             player.swingMainHand();
+            victim.setNoDamageTicks(0);
             damageFromAbility(player, victim, BONUS_HIT_DAMAGE);
+
             Location hitLocation = victim.getLocation().add(0, 1, 0);
             World world = victim.getWorld();
             world.spawnParticle(Particle.SWEEP_ATTACK, hitLocation, 1);
             world.spawnParticle(Particle.DRAGON_BREATH, hitLocation,
-                    22, 0.35, 0.45, 0.35, 0.025);
-            world.playSound(hitLocation, Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.9f, 0.65f);
+                    30, 0.35, 0.45, 0.35, 0.03);
+            world.spawnParticle(Particle.CRIT, hitLocation, 18, 0.3, 0.4, 0.3, 0.12);
+            world.playSound(hitLocation, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.55f);
         }, DOUBLE_STRIKE_DELAY_TICKS);
     }
 
