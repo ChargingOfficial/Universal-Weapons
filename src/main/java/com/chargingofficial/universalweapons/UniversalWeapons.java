@@ -442,6 +442,44 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         return true;
     }
 
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (!command.getName().equalsIgnoreCase("weapon")) return List.of();
+        if (args.length == 1) {
+            return List.of("calamity", "crossbow", "spear", "trident", "axe", "slimeball")
+                    .stream().filter(option -> option.startsWith(args[0].toLowerCase(java.util.Locale.ROOT))).toList();
+        }
+        if (args.length == 2 && List.of("crossbow", "spear", "trident", "axe", "infernal", "judgment", "storm", "berserker")
+                .contains(args[0].toLowerCase(java.util.Locale.ROOT))) {
+            return List.of("normal").stream()
+                    .filter(option -> option.startsWith(args[1].toLowerCase(java.util.Locale.ROOT))).toList();
+        }
+        return List.of();
+    }
+
+    private void spearLunge(Player player) {
+        UUID id = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        long readyAt = spearLungeReadyAt.getOrDefault(id, 0L);
+        if (readyAt > now) {
+            player.sendActionBar(ChatColor.GOLD + "Spear Lunge recharging: "
+                    + String.format(java.util.Locale.US, "%.1fs", (readyAt - now) / 1000.0));
+            return;
+        }
+        spearLungeReadyAt.put(id, now + SPEAR_LUNGE_COOLDOWN_MS);
+        Vector velocity = player.getEyeLocation().getDirection().normalize().multiply(2.15);
+        velocity.setY(Math.max(0.25, velocity.getY() + 0.18));
+        player.setVelocity(velocity);
+        player.setFallDistance(0);
+        Location origin = player.getLocation().add(0, 1.0, 0);
+        World world = player.getWorld();
+        world.playSound(origin, Sound.ITEM_TRIDENT_RIPTIDE_1, 1.0f, 1.25f);
+        world.spawnParticle(Particle.SWEEP_ATTACK, origin, 8, 0.35, 0.25, 0.35, 0.08);
+        world.spawnParticle(Particle.ELECTRIC_SPARK, origin, 24, 0.35, 0.35, 0.35, 0.12);
+        player.sendActionBar(ChatColor.GOLD + "HEAVEN'S LUNGE!");
+    }
+
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) return;
