@@ -167,7 +167,15 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             @Override
             public void run() {
                 if (!player.isOnline() || !player.isValid() || player.isDead()
-                        || !player.getWorld().equals(world) || !isRitualReady(player)) {
+                        || !player.getWorld().equals(world)) {
+                    interrupt();
+                    return;
+                }
+
+                // Once started, don't repeat the fragile custom-name parser every tick.
+                // The ritual only requires that the mace remains in the main hand.
+                ItemStack currentHeld = player.getInventory().getItemInMainHand();
+                if (currentHeld.getType() != Material.MACE) {
                     interrupt();
                     return;
                 }
@@ -184,6 +192,27 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 }
 
                 elapsedTicks++;
+                Location at = player.getLocation();
+
+                // Live 20-segment progress bar, refreshed every tick.
+                int progress = Math.min(100, elapsedTicks * 100 / 120);
+                int filled = progress / 5;
+                StringBuilder bar = new StringBuilder();
+                for (int segment = 0; segment < 20; segment++) {
+                    bar.append(segment < filled
+                            ? ChatColor.DARK_PURPLE + "■"
+                            : ChatColor.GRAY + "■");
+                }
+                String actionBar = ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD
+                        + "AWAKENING " + ChatColor.WHITE + progress + "% "
+                        + bar + ChatColor.RESET + ChatColor.LIGHT_PURPLE
+                        + " " + String.format(java.util.Locale.US, "%.1fs", (120 - elapsedTicks) / 20.0);
+                player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(actionBar));
+
+                // Particle rendering is cosmetic; a particle/API issue must never
+                // terminate the timer or freeze the progress bar.
+                try {
+
                 Location at = player.getLocation();
                 double angle = elapsedTicks * 0.24;
                 double build = Math.min(1.8, 0.65 + elapsedTicks / 90.0);
@@ -238,20 +267,13 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     }
                 }
 
-                // Live 20-segment progress bar, refreshed every tick.
-                int progress = Math.min(100, elapsedTicks * 100 / 120);
-                int filled = progress / 5;
-                StringBuilder bar = new StringBuilder();
-                for (int segment = 0; segment < 20; segment++) {
-                    bar.append(segment < filled
-                            ? ChatColor.DARK_PURPLE + "■"
-                            : ChatColor.GRAY + "■");
+                } catch (RuntimeException effectError) {
+                    if (elapsedTicks == 1) {
+                        getLogger().warning("A Calamity ritual particle effect failed: "
+                                + effectError.getMessage());
+                    }
                 }
-                String actionBar = ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD
-                        + "AWAKENING " + ChatColor.WHITE + progress + "% "
-                        + bar + ChatColor.RESET + ChatColor.LIGHT_PURPLE
-                        + " " + String.format(java.util.Locale.US, "%.1fs", (120 - elapsedTicks) / 20.0);
-                player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(actionBar));
+
 
                 if (elapsedTicks % 20 == 0) {
                     world.playSound(at, Sound.BLOCK_BEACON_AMBIENT,
