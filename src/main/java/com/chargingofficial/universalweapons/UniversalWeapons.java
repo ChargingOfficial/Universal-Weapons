@@ -652,7 +652,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 case "judgment_spear" -> List.of(ChatColor.GRAY + "A weapon of storm and impact.",
                         ChatColor.AQUA + "Passive: " + ChatColor.WHITE + "Infinite Saturation while held",
                         ChatColor.GOLD + "Hit: " + ChatColor.WHITE + "Lightning judgment (5 hearts)",
-                        ChatColor.GOLD + "Right-click: " + ChatColor.WHITE + "Heaven's Lunge",
                         ChatColor.GOLD + "Sneak + right-click: " + ChatColor.WHITE + "Skyfall Ground Slam");
                 case "storm_trident" -> List.of(ChatColor.GRAY + "The fury of the deep.",
                         ChatColor.AQUA + "Hit: " + ChatColor.WHITE + "Repeated lightning strikes");
@@ -674,6 +673,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     addEnchant(meta, "looting", 3); addEnchant(meta, "knockback", 2);
                     addEnchant(meta, "unbreaking", 3); addEnchant(meta, "mending", 1);
                     addEnchant(meta, "sweeping_edge", 3);
+                    addEnchant(meta, "lunge", 3);
                     try {
                         meta.addAttributeModifier(Attribute.ATTACK_SPEED, new AttributeModifier(
                                 new NamespacedKey(this, "judgment_infinite_attack_speed"),
