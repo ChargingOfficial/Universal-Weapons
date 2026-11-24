@@ -209,11 +209,11 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         + " " + String.format(java.util.Locale.US, "%.1fs", (120 - elapsedTicks) / 20.0);
                 player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(actionBar));
 
+                double angle = elapsedTicks * 0.24;
+
                 // Particle rendering is cosmetic; a particle/API issue must never
                 // terminate the timer or freeze the progress bar.
                 try {
-
-                double angle = elapsedTicks * 0.24;
                 double build = Math.min(1.8, 0.65 + elapsedTicks / 90.0);
 
                 // Three dense rotating rings form a large, layered halo around the player.
