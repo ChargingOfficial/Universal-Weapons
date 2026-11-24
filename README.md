@@ -53,8 +53,8 @@ Use the command variants below as an operator (or with the weapon permission). A
 | `/weapon slimeball` | Eclipse Core | — |
 
 ### Infernal Requiem
-- Crossbow with Multishot X and Quick Charge III.
-- The crossbow has no custom active ability. Arrows fired from it ignite automatically; Multishot X and Quick Charge III remain.
+- Crossbow with Multishot X and Quick Charge X.
+- The crossbow has no custom active ability. Arrows fired from it ignite automatically; Multishot X and Quick Charge X remain.
 
 ### Heaven's Judgment
 - Uses the actual Minecraft spear item (not a trident) with a large attack-speed modifier and high-level combat enchantments.
