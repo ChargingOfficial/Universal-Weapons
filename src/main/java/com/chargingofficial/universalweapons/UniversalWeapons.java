@@ -163,6 +163,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
         BukkitRunnable ritual = new BukkitRunnable() {
             private int elapsedTicks = 0;
+            private static final int RITUAL_DURATION_TICKS = 600;
 
             @Override
             public void run() {
@@ -195,7 +196,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 Location at = player.getLocation();
 
                 // Live 20-segment progress bar, refreshed every tick.
-                int progress = Math.min(100, elapsedTicks * 100 / 120);
+                int progress = Math.min(100, elapsedTicks * 100 / RITUAL_DURATION_TICKS);
                 int filled = progress / 5;
                 StringBuilder bar = new StringBuilder();
                 for (int segment = 0; segment < 20; segment++) {
@@ -206,15 +207,45 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 String actionBar = ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD
                         + "AWAKENING " + ChatColor.WHITE + progress + "% "
                         + bar + ChatColor.RESET + ChatColor.LIGHT_PURPLE
-                        + " " + String.format(java.util.Locale.US, "%.1fs", (120 - elapsedTicks) / 20.0);
+                        + " " + String.format(java.util.Locale.US, "%.1fs", Math.max(0, RITUAL_DURATION_TICKS - elapsedTicks) / 20.0);
                 player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(actionBar));
 
-                double angle = elapsedTicks * 0.24;
+                // Complete immediately at 30 seconds, before cosmetic effects run.
+                // The original renamed mace is replaced in the same tick.
+                if (elapsedTicks >= RITUAL_DURATION_TICKS) {
+                    cancel();
+                    ritualTasks.remove(id);
+                    ritualBlocks.remove(id);
+                    player.getInventory().setItemInMainHand(createCalamity());
+                    player.sendActionBar(Component.text("CALAMITY AWAKENED"));
+                    Location burst = player.getLocation().add(0, 1, 0);
+                    try {
+                        world.spawnParticle(Particle.EXPLOSION, burst, 4);
+                        world.spawnParticle(Particle.FLASH, burst, 8, 0.25, 0.25, 0.25, 0.0);
+                        world.spawnParticle(Particle.DRAGON_BREATH, burst, 700, 1.8, 2.0, 1.8, 0.12);
+                        world.spawnParticle(Particle.PORTAL, burst, 900, 2.0, 2.0, 2.0, 0.30);
+                        world.spawnParticle(Particle.REVERSE_PORTAL, burst, 600, 1.8, 1.8, 1.8, 0.22);
+                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, burst, 350, 1.4, 1.6, 1.4, 0.12);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, burst, 350, 1.5, 1.6, 1.5, 0.18);
+                        world.spawnParticle(Particle.END_ROD, burst, 250, 1.2, 1.6, 1.2, 0.18);
+                        world.spawnParticle(Particle.SONIC_BOOM, burst, 3);
+                        world.playSound(burst, Sound.BLOCK_BEACON_POWER_SELECT, 1.2f, 0.55f);
+                        world.playSound(burst, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.25f);
+                    } catch (RuntimeException effectError) {
+                        getLogger().warning("Calamity awakening finale effect failed: " + effectError.getMessage());
+                    }
+                    player.sendTitle(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD + "CALAMITY AWAKENED",
+                            ChatColor.LIGHT_PURPLE + "The Corrupted Calamity is yours",
+                            10, 55, 20);
+                    return;
+                }
+
+                double angle = elapsedTicks * 0.024;
 
                 // Particle rendering is cosmetic; a particle/API issue must never
                 // terminate the timer or freeze the progress bar.
                 try {
-                double build = Math.min(1.8, 0.65 + elapsedTicks / 90.0);
+                double build = Math.min(1.8, 0.65 + elapsedTicks / 450.0);
 
                 // Three dense rotating rings form a large, layered halo around the player.
                 for (int i = 0; i < 32; i++) {
@@ -276,14 +307,14 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
                 if (elapsedTicks % 20 == 0) {
                     world.playSound(at, Sound.BLOCK_BEACON_AMBIENT,
-                            1.0f, 0.45f + elapsedTicks / 120.0f);
+                            1.0f, 0.45f + elapsedTicks / 600.0f);
                     world.playSound(at, Sound.BLOCK_BEACON_POWER_SELECT,
-                            0.55f, 0.65f + elapsedTicks / 240.0f);
+                            0.55f, 0.65f + elapsedTicks / 1200.0f);
                 }
 
                 // The aura becomes increasingly violent in the final third.
-                if (elapsedTicks >= 80) {
-                    double surge = 1.0 + (elapsedTicks - 80) / 20.0;
+                if (elapsedTicks >= 400) {
+                    double surge = 1.0 + (elapsedTicks - 400) / 40.0;
                     for (int i = 0; i < 8; i++) {
                         double a = angle * 1.8 + Math.PI * 2.0 * i / 8.0;
                         double y = 0.25 + ((elapsedTicks * 0.13 + i * 0.37) % 3.0);
@@ -302,10 +333,10 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 }
 
                 // Final two seconds: frequent surges, stronger sound, and a bright pulse.
-                if (elapsedTicks >= 100) {
+                if (elapsedTicks >= 500) {
                     if (elapsedTicks % 5 == 0) {
                         world.playSound(at, Sound.BLOCK_BEACON_ACTIVATE,
-                                0.7f, 0.8f + (elapsedTicks - 100) * 0.035f);
+                                0.7f, 0.8f + (elapsedTicks - 500) * 0.007f);
                     }
                     if (elapsedTicks % 4 == 0) {
                         world.spawnParticle(Particle.FLASH, at.clone().add(0, 1.1, 0),
@@ -317,42 +348,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     }
                 }
 
-                if (elapsedTicks >= 120) {
-                    // The ritual's per-tick validation has already confirmed the
-                    // renamed mace and command-block position. Do not run a second
-                    // independent check here that could reject a valid anvil name.
-                    if (!player.isOnline() || !player.isValid() || player.isDead()) {
-                        interrupt();
-                        return;
-                    }
 
-                    ItemStack heldNow = player.getInventory().getItemInMainHand();
-                    if (heldNow.getType() != Material.MACE) {
-                        interrupt();
-                        return;
-                    }
-
-                    cancel();
-                    ritualTasks.remove(id);
-                    ritualBlocks.remove(id);
-                    player.getInventory().setItemInMainHand(createCalamity());
-
-                    Location burst = player.getLocation().add(0, 1, 0);
-                    world.spawnParticle(Particle.EXPLOSION, burst, 3);
-                    world.spawnParticle(Particle.FLASH, burst, 5, 0.2, 0.2, 0.2, 0.0);
-                    world.spawnParticle(Particle.DRAGON_BREATH, burst, 420, 1.4, 1.7, 1.4, 0.10);
-                    world.spawnParticle(Particle.PORTAL, burst, 650, 1.6, 1.8, 1.6, 0.28);
-                    world.spawnParticle(Particle.REVERSE_PORTAL, burst, 320, 1.3, 1.6, 1.3, 0.18);
-                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, burst, 240, 1.1, 1.4, 1.1, 0.10);
-                    world.spawnParticle(Particle.ELECTRIC_SPARK, burst, 220, 1.3, 1.5, 1.3, 0.16);
-                    world.spawnParticle(Particle.END_ROD, burst, 180, 1.0, 1.4, 1.0, 0.16);
-                    world.spawnParticle(Particle.SONIC_BOOM, burst, 2);
-                    world.playSound(burst, Sound.BLOCK_BEACON_POWER_SELECT, 1.2f, 0.55f);
-                    world.playSound(burst, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.25f);
-                    player.sendTitle(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD + "CALAMITY AWAKENED",
-                            ChatColor.LIGHT_PURPLE + "The Corrupted Calamity is yours",
-                            10, 55, 20);
-                }
             }
 
             private void interrupt() {
