@@ -336,6 +336,47 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     default -> world.spawnParticle(Particle.END_ROD,center,12,0.8,1.0,0.8,0.03);
                 }
 
+                // Every 10% unlocks a stronger, weapon-specific burst with a wider radius.
+                if (progress > 0 && progress % 10 == 0 && elapsedTicks % 6 == 0) {
+                    int tier = progress / 10;
+                    double spread = 1.0 + tier * 0.48;
+                    Particle burstParticle = switch (type) {
+                        case "infernal_crossbow" -> Particle.FLAME;
+                        case "judgment_spear" -> Particle.ELECTRIC_SPARK;
+                        case "storm_trident" -> Particle.SPLASH;
+                        case "bloodreaver_axe" -> Particle.CRIMSON_SPORE;
+                        case "eclipse_core" -> Particle.REVERSE_PORTAL;
+                        default -> Particle.PORTAL;
+                    };
+                    Particle accentParticle = switch (type) {
+                        case "infernal_crossbow" -> Particle.SOUL_FIRE_FLAME;
+                        case "judgment_spear" -> Particle.END_ROD;
+                        case "storm_trident" -> Particle.BUBBLE;
+                        case "bloodreaver_axe" -> Particle.ASH;
+                        case "eclipse_core" -> Particle.SQUID_INK;
+                        default -> Particle.ELECTRIC_SPARK;
+                    };
+                    for (int i = 0; i < 24; i++) {
+                        double direction = Math.PI * 2.0 * i / 24.0;
+                        double distance = spread * (0.65 + (i % 4) * 0.12);
+                        Location burstPoint = center.clone().add(
+                                Math.cos(direction) * distance,
+                                -0.65 + (i % 6) * 0.42,
+                                Math.sin(direction) * distance);
+                        world.spawnParticle(burstParticle, burstPoint, 2 + tier * 2,
+                                0.10 + tier * 0.025, 0.12 + tier * 0.025,
+                                0.10 + tier * 0.025, 0.025 + tier * 0.006);
+                        world.spawnParticle(accentParticle, burstPoint, 1 + tier,
+                                0.08 + tier * 0.02, 0.10 + tier * 0.02,
+                                0.08 + tier * 0.02, 0.02 + tier * 0.004);
+                    }
+                    float chargePitch = 0.55f + tier * 0.095f;
+                    world.playSound(center, Sound.BLOCK_BEACON_POWER_SELECT,
+                            0.65f + tier * 0.035f, chargePitch);
+                    world.playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE,
+                            0.45f + tier * 0.045f, chargePitch);
+                }
+
                 // A visual-only lightning cadence builds anticipation without damage.
                 if (elapsedTicks % 100 == 0 && elapsedTicks < DURATION_TICKS) {
                     double boltAngle = elapsedTicks * 0.17;
@@ -397,10 +438,27 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     world.spawnParticle(Particle.ELECTRIC_SPARK, center, 240, 2.0, 2.2, 2.0, 0.24);
                     world.spawnParticle(Particle.END_ROD, center, 170, 2.0, 2.0, 2.0, 0.16);
                     world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 130, 1.8, 2.0, 1.8, 0.18);
+                    for (int i = 0; i < 36; i++) {
+                        double direction = Math.PI * 2.0 * i / 36.0;
+                        double distance = 1.2 + (i % 6) * 0.62;
+                        Location dispersal = center.clone().add(Math.cos(direction) * distance,
+                                -0.8 + (i % 9) * 0.42, Math.sin(direction) * distance);
+                        world.spawnParticle(primary, dispersal, 12, 0.22, 0.24, 0.22, 0.10);
+                        world.spawnParticle(secondary, dispersal, 8, 0.18, 0.22, 0.18, 0.08);
+                    }
+                    world.spawnParticle(Particle.FLASH, center, 8, 0.5, 0.65, 0.5, 0.0);
                     world.playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.4f, 0.85f);
                     world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.9f, 0.7f);
                     world.playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, 1.2f, 0.6f);
                     world.playSound(center, Sound.ENTITY_PLAYER_LEVELUP, 1.2f, 0.7f);
+                    switch (type) {
+                        case "infernal_crossbow" -> world.playSound(center, Sound.ENTITY_BLAZE_DEATH, 1.2f, 0.75f);
+                        case "judgment_spear" -> world.playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.4f, 1.25f);
+                        case "storm_trident" -> world.playSound(center, Sound.ENTITY_GENERIC_SPLASH, 1.3f, 0.7f);
+                        case "bloodreaver_axe" -> world.playSound(center, Sound.ENTITY_RAVAGER_DEATH, 1.1f, 0.8f);
+                        case "eclipse_core" -> world.playSound(center, Sound.ENTITY_ENDERMAN_TELEPORT, 1.2f, 0.55f);
+                        default -> { }
+                    }
                     player.sendTitle(ChatColor.GOLD + "" + ChatColor.BOLD + displayName + " AWAKENED",
                             ChatColor.YELLOW + "The weapon answers your call", 10, 50, 20);
                 }
@@ -503,6 +561,34 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 elapsedTicks++;
                 Location at = player.getLocation();
 
+                // Ten distinct corruption stages: each 10% expands the effect and raises the charge.
+                if (progress > 0 && progress % 10 == 0 && elapsedTicks % 6 == 0) {
+                    int tier = progress / 10;
+                    double radius = 1.0 + tier * 0.52;
+                    for (int i = 0; i < 32; i++) {
+                        double direction = Math.PI * 2.0 * i / 32.0 + angle;
+                        double distance = radius * (0.72 + (i % 5) * 0.07);
+                        Location shard = at.clone().add(Math.cos(direction) * distance,
+                                -0.75 + (i % 8) * 0.38,
+                                Math.sin(direction) * distance);
+                        world.spawnParticle(Particle.DRAGON_BREATH, shard, 2 + tier * 2,
+                                0.10 + tier * 0.025, 0.12 + tier * 0.025,
+                                0.10 + tier * 0.025, 0.035 + tier * 0.006);
+                        world.spawnParticle(Particle.REVERSE_PORTAL, shard, 2 + tier,
+                                0.08 + tier * 0.02, 0.10 + tier * 0.02,
+                                0.08 + tier * 0.02, 0.05 + tier * 0.008);
+                        if (tier >= 5) world.spawnParticle(Particle.ELECTRIC_SPARK, shard,
+                                1 + tier / 2, 0.12, 0.14, 0.12, 0.08);
+                    }
+                    float pitch = 0.55f + tier * 0.095f;
+                    world.playSound(at, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE,
+                            0.55f + tier * 0.04f, pitch);
+                    world.playSound(at, Sound.BLOCK_BEACON_POWER_SELECT,
+                            0.65f + tier * 0.035f, pitch);
+                    world.playSound(at, Sound.ENTITY_WITHER_AMBIENT,
+                            0.35f + tier * 0.035f, 0.5f + tier * 0.07f);
+                }
+
                 // Live 20-segment progress bar, refreshed every tick.
                 int progress = Math.min(100, elapsedTicks * 100 / RITUAL_DURATION_TICKS);
                 int filled = progress / 5;
@@ -558,6 +644,20 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         world.playSound(burst, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.9f, 1.15f);
                         world.playSound(burst, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.7f);
                         world.playSound(burst, Sound.ENTITY_WITHER_DEATH, 0.8f, 0.8f);
+                        world.playSound(burst, Sound.BLOCK_END_PORTAL_SPAWN, 1.2f, 0.6f);
+                        // Corrupted energy explodes out in 48 separate directions.
+                        for (int i = 0; i < 48; i++) {
+                            double direction = Math.PI * 2.0 * i / 48.0;
+                            double distance = 1.5 + (i % 8) * 0.7;
+                            Location shard = burst.clone().add(Math.cos(direction) * distance,
+                                    -0.8 + (i % 10) * 0.42, Math.sin(direction) * distance);
+                            world.spawnParticle(Particle.DRAGON_BREATH, shard, 14,
+                                    0.22, 0.24, 0.22, 0.13);
+                            world.spawnParticle(Particle.REVERSE_PORTAL, shard, 10,
+                                    0.18, 0.22, 0.18, 0.16);
+                            world.spawnParticle(Particle.SOUL_FIRE_FLAME, shard, 6,
+                                    0.12, 0.16, 0.12, 0.08);
+                        }
                     } catch (RuntimeException effectError) {
                         getLogger().warning("Calamity awakening finale effect failed: " + effectError.getMessage());
                     }
