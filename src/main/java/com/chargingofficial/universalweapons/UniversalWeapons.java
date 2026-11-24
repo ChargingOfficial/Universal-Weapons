@@ -213,7 +213,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 // terminate the timer or freeze the progress bar.
                 try {
 
-                Location at = player.getLocation();
                 double angle = elapsedTicks * 0.24;
                 double build = Math.min(1.8, 0.65 + elapsedTicks / 90.0);
 
