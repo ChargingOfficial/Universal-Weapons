@@ -560,6 +560,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
                 elapsedTicks++;
                 Location at = player.getLocation();
+                int progress = Math.min(100, elapsedTicks * 100 / RITUAL_DURATION_TICKS);
 
                 // Ten distinct corruption stages: each 10% expands the effect and raises the charge.
                 if (progress > 0 && progress % 10 == 0 && elapsedTicks % 6 == 0) {
@@ -590,7 +591,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 }
 
                 // Live 20-segment progress bar, refreshed every tick.
-                int progress = Math.min(100, elapsedTicks * 100 / RITUAL_DURATION_TICKS);
                 int filled = progress / 5;
                 StringBuilder bar = new StringBuilder();
                 for (int segment = 0; segment < 20; segment++) {
