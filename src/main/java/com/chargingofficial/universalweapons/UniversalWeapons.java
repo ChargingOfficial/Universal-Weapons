@@ -598,7 +598,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             return List.of("calamity", "crossbow", "spear", "trident", "axe", "slimeball")
                     .stream().filter(option -> option.startsWith(args[0].toLowerCase(java.util.Locale.ROOT))).toList();
         }
-        if (args.length == 2 && List.of("crossbow", "spear", "trident", "axe", "infernal", "judgment", "storm", "berserker")
+        if (args.length == 2 && List.of("crossbow", "spear", "trident", "axe", "slimeball", "infernal", "judgment", "storm", "berserker", "eclipse")
                 .contains(args[0].toLowerCase(java.util.Locale.ROOT))) {
             return List.of("normal").stream()
                     .filter(option -> option.startsWith(args[1].toLowerCase(java.util.Locale.ROOT))).toList();
