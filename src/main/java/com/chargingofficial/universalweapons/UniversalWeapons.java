@@ -679,7 +679,8 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     addEnchant(meta, "bane_of_arthropods", 5); addEnchant(meta, "fire_aspect", 2);
                     addEnchant(meta, "looting", 3); addEnchant(meta, "knockback", 2);
                     addEnchant(meta, "unbreaking", 3); addEnchant(meta, "mending", 1);
-                    addEnchant(meta, "sweeping_edge", 3);\n                    addEnchant(meta, "lunge", 3);
+                    addEnchant(meta, "sweeping_edge", 3);
+                    addEnchant(meta, "lunge", 3);
                     try {
                         meta.addAttributeModifier(Attribute.ATTACK_SPEED, new AttributeModifier(
                                 new NamespacedKey(this, "judgment_infinite_attack_speed"),
