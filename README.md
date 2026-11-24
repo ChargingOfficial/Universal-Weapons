@@ -74,6 +74,7 @@ Use `/weapon crossbow normal`, `/weapon spear normal`, `/weapon trident normal`,
 ### Heaven's Judgment
 - Uses the actual Minecraft spear item (not a trident) with a large attack-speed modifier and high-level combat enchantments. Uses the Netherite Spear material introduced in Minecraft 1.21.11.
 - Every hit calls a lightning visual and deals 5 hearts of bonus damage.
+- Enchanted with Lunge III. The spear retains vanilla Lunge behavior.
 - While Heaven's Judgment is held in either hand, the wielder continuously receives Saturation.
 - Sneak + right-click launches the wielder upward, then drives them into the ground. The impact damages and knocks back nearby entities; the wielder's fall damage is suppressed. Has a 10-second cooldown.
 
