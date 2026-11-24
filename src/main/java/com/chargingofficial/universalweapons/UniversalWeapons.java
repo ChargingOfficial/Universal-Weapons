@@ -262,12 +262,39 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     default -> Particle.CRIT;
                 };
                 double radius = 1.0 + progress / 100.0;
-                for (int i = 0; i < 18; i++) {
-                    double angle = elapsedTicks * 0.12 + Math.PI * 2.0 * i / 18.0;
+                for (int i = 0; i < 24; i++) {
+                    double angle = elapsedTicks * 0.12 + Math.PI * 2.0 * i / 24.0;
                     Location point = center.clone().add(Math.cos(angle) * radius,
-                            0.15 + (i % 5) * 0.42, Math.sin(angle) * radius);
-                    world.spawnParticle(primary, point, 2, 0.08, 0.08, 0.08, 0.02);
-                    world.spawnParticle(secondary, point, 1, 0.04, 0.05, 0.04, 0.01);
+                            0.15 + (i % 7) * 0.34, Math.sin(angle) * radius);
+                    world.spawnParticle(primary, point, 3, 0.08, 0.08, 0.08, 0.025);
+                    world.spawnParticle(secondary, point, 2, 0.04, 0.05, 0.04, 0.015);
+                }
+
+                // Add layered ground runes, a rising energy column, and a rotating crown.
+                for (int i = 0; i < 36; i++) {
+                    double runeAngle = Math.PI * 2.0 * i / 36.0 - elapsedTicks * 0.035;
+                    Location rune = center.clone().add(Math.cos(runeAngle) * (2.0 + progress * 0.006),
+                            -0.82, Math.sin(runeAngle) * (2.0 + progress * 0.006));
+                    world.spawnParticle(Particle.END_ROD, rune, 1, 0.025, 0.015, 0.025, 0.005);
+                    if (i % 3 == 0) world.spawnParticle(primary, rune, 2, 0.035, 0.02, 0.035, 0.01);
+                }
+                world.spawnParticle(secondary, center.clone().add(0, 0.9, 0),
+                        10, 0.28, 0.75, 0.28, 0.035);
+                world.spawnParticle(Particle.ENCHANT, center.clone().add(0, 1.6, 0),
+                        14, 0.55, 0.45, 0.55, 0.8);
+                if (elapsedTicks % 10 == 0) {
+                    world.spawnParticle(Particle.FLASH, center.clone().add(0, 2.0, 0),
+                            1, 0.18, 0.12, 0.18, 0.0);
+                }
+
+                // A visual-only lightning cadence builds anticipation without damage.
+                if (elapsedTicks % 100 == 0 && elapsedTicks < DURATION_TICKS) {
+                    double boltAngle = elapsedTicks * 0.17;
+                    Location bolt = center.clone().add(Math.cos(boltAngle) * 2.2, 0,
+                            Math.sin(boltAngle) * 2.2);
+                    world.strikeLightningEffect(bolt);
+                    world.spawnParticle(Particle.ELECTRIC_SPARK, bolt, 45, 0.55, 0.9, 0.55, 0.16);
+                    world.playSound(center, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.75f, 1.15f);
                 }
                 if (elapsedTicks % 20 == 0) {
                     float pitch = 0.65f + progress / 180.0f;
@@ -287,10 +314,20 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     world.spawnParticle(Particle.EXPLOSION, center, 2);
                     world.spawnParticle(primary, center, 180, 1.2, 1.5, 1.2, 0.12);
                     world.spawnParticle(secondary, center, 140, 1.0, 1.3, 1.0, 0.10);
-                    // Final lightning strike is visual-only so it cannot damage nearby players.
+                    // A five-point lightning finale: all bolts are visual-only and deal no damage.
+                    for (int bolt = 0; bolt < 5; bolt++) {
+                        double angle = Math.PI * 2.0 * bolt / 5.0;
+                        Location strike = center.clone().add(Math.cos(angle) * 2.4, 0,
+                                Math.sin(angle) * 2.4);
+                        world.strikeLightningEffect(strike);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, strike, 65,
+                                0.55, 1.0, 0.55, 0.2);
+                    }
                     world.strikeLightningEffect(center);
-                    world.spawnParticle(Particle.FLASH, center, 5, 0.35, 0.45, 0.35, 0.0);
-                    world.spawnParticle(Particle.ELECTRIC_SPARK, center, 90, 0.8, 1.0, 0.8, 0.18);
+                    world.spawnParticle(Particle.FLASH, center, 8, 0.5, 0.65, 0.5, 0.0);
+                    world.spawnParticle(Particle.ELECTRIC_SPARK, center, 180, 1.0, 1.3, 1.0, 0.22);
+                    world.spawnParticle(Particle.END_ROD, center, 120, 1.1, 1.5, 1.1, 0.12);
+                    world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 90, 0.9, 1.2, 0.9, 0.16);
                     world.playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.1f, 1.0f);
                     world.playSound(center, Sound.ENTITY_PLAYER_LEVELUP, 1.2f, 0.7f);
                     player.sendTitle(ChatColor.GOLD + "" + ChatColor.BOLD + displayName + " AWAKENED",
@@ -405,10 +442,20 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         world.spawnParticle(Particle.ELECTRIC_SPARK, burst, 350, 1.5, 1.6, 1.5, 0.18);
                         world.spawnParticle(Particle.END_ROD, burst, 250, 1.2, 1.6, 1.2, 0.18);
                         world.spawnParticle(Particle.SONIC_BOOM, burst, 3);
-                        // Final visual-only lightning strike for the Calamity ritual.
+                        // Six surrounding bolts plus a central bolt; all are visual-only.
+                        for (int bolt = 0; bolt < 6; bolt++) {
+                            double a = Math.PI * 2.0 * bolt / 6.0;
+                            Location strike = burst.clone().add(Math.cos(a) * 2.8, 0,
+                                    Math.sin(a) * 2.8);
+                            world.strikeLightningEffect(strike);
+                            world.spawnParticle(Particle.ELECTRIC_SPARK, strike, 85,
+                                    0.7, 1.2, 0.7, 0.22);
+                        }
                         world.strikeLightningEffect(burst);
-                        world.spawnParticle(Particle.FLASH, burst, 8, 0.3, 0.45, 0.3, 0.0);
-                        world.spawnParticle(Particle.ELECTRIC_SPARK, burst, 120, 1.0, 1.2, 1.0, 0.2);
+                        world.spawnParticle(Particle.FLASH, burst, 12, 0.4, 0.6, 0.4, 0.0);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, burst, 240, 1.2, 1.5, 1.2, 0.24);
+                        world.spawnParticle(Particle.TOTEM_OF_UNDYING, burst, 180, 1.1, 1.5, 1.1, 0.18);
+                        world.spawnParticle(Particle.END_ROD, burst, 220, 1.0, 1.8, 1.0, 0.16);
                         world.playSound(burst, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.2f, 0.85f);
                         world.playSound(burst, Sound.BLOCK_BEACON_POWER_SELECT, 1.2f, 0.55f);
                         world.playSound(burst, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.25f);
@@ -511,6 +558,18 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     }
                     world.spawnParticle(Particle.DRAGON_BREATH, at.clone().add(0, 1.0, 0),
                             18 + (elapsedTicks - 80), 0.8, 1.0, 0.8, 0.06);
+                }
+
+                // Periodic visual-only lightning strikes around the Calamity ritual.
+                if (elapsedTicks >= 100 && elapsedTicks < RITUAL_DURATION_TICKS
+                        && elapsedTicks % 80 == 0) {
+                    double boltAngle = elapsedTicks * 0.11;
+                    Location bolt = at.clone().add(Math.cos(boltAngle) * 2.6, 0,
+                            Math.sin(boltAngle) * 2.6);
+                    world.strikeLightningEffect(bolt);
+                    world.spawnParticle(Particle.ELECTRIC_SPARK, bolt, 75,
+                            0.65, 1.1, 0.65, 0.2);
+                    world.playSound(at, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.9f, 0.8f);
                 }
 
                 // Final two seconds: frequent surges, stronger sound, and a bright pulse.
