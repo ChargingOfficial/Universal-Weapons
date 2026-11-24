@@ -66,7 +66,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private final Map<UUID, Integer> axeHitCounts = new HashMap<>();
     private final Set<UUID> groundSlamming = new HashSet<>();
     private final Map<UUID, Long> groundSlamReadyAt = new HashMap<>();
-    private final Set<UUID> activeWaterCubes = new HashSet<>();
     private final Map<UUID, DomeSession> activeDomes = new HashMap<>();
     private final Map<UUID, Integer> hitCounts = new HashMap<>();
     private final Map<UUID, Long> dashReadyAt = new HashMap<>();
@@ -111,7 +110,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         axeHitCounts.clear();
         groundSlamming.clear();
         groundSlamReadyAt.clear();
-        activeWaterCubes.clear();
         for (BukkitTask task : ritualTasks.values()) task.cancel();
         ritualTasks.clear();
         ritualBlocks.clear();
@@ -421,15 +419,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             case "calamity" -> weapon = createCalamity();
             case "crossbow", "infernal" -> weapon = createNamedWeapon(Material.CROSSBOW,
                     normal ? "Infernal" : "Infernal Requiem", "infernal_crossbow", normal);
-            case "spear", "judgment" -> {
-                Material spearMaterial = resolveSpearMaterial();
-                if (spearMaterial == null) {
-                    player.sendMessage(ChatColor.RED + "This server does not provide the Minecraft Spear item. Update the server to Minecraft/Paper 1.21.11 or newer; no trident fallback will be given.");
-                    return true;
-                }
-                weapon = createNamedWeapon(spearMaterial,
-                        normal ? "Judgment" : "Heaven's Judgment", "judgment_spear", normal);
-            }
+            case "spear", "judgment" -> weapon = createNamedWeapon(
+                    resolveSpearMaterial(), normal ? "Judgment" : "Heaven's Judgment",
+                    "judgment_spear", normal);
             case "trident", "storm" -> weapon = createNamedWeapon(Material.TRIDENT,
                     normal ? "Storm" : "Poseidon's Wrath", "storm_trident", normal);
             case "axe", "berserker" -> weapon = createNamedWeapon(Material.NETHERITE_AXE,
@@ -466,13 +458,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             case "judgment_spear" -> {
                 if (player.isSneaking()) { event.setCancelled(true); groundSlam(player); }
             }
-            case "storm_trident" -> {
-                if (player.isSneaking()) {
-                    event.setCancelled(true);
-                    if (activeWaterCubes.contains(player.getUniqueId())) triggerWaterCubeRiptide(player);
-                    else summonWaterCube(player);
-                }
-            }
+            case "storm_trident" -> { /* No custom right-click ability; vanilla trident behavior remains. */ }
         }
     }
 
@@ -488,8 +474,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         ChatColor.GOLD + "Hit: " + ChatColor.WHITE + "Lightning judgment (5 hearts)",
                         ChatColor.GOLD + "Sneak + right-click: " + ChatColor.WHITE + "Skyfall Ground Slam");
                 case "storm_trident" -> List.of(ChatColor.GRAY + "The fury of the deep.",
-                        ChatColor.AQUA + "Hit: " + ChatColor.WHITE + "Repeated lightning strikes",
-                        ChatColor.AQUA + "Sneak + right-click: " + ChatColor.WHITE + "Water Cube");
+                        ChatColor.AQUA + "Hit: " + ChatColor.WHITE + "Repeated lightning strikes");
                 default -> List.of(ChatColor.GRAY + "A weapon that feeds on battle.",
                         ChatColor.RED + "Every third hit: " + ChatColor.WHITE + "Berserk for 15 seconds",
                         ChatColor.RED + "Passive: " + ChatColor.WHITE + "Destroys blocking shields");
@@ -593,44 +578,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         }, 1L, 1L);
     }
 
-    private void summonWaterCube(Player player) {
-        UUID id = player.getUniqueId();
-        activeWaterCubes.add(id);
-        Location center = player.getLocation().add(0, 1, 0);
-        World world = player.getWorld();
-        world.playSound(center, Sound.ITEM_TRIDENT_RIPTIDE_1, 1.0f, 0.8f);
-        player.sendActionBar(ChatColor.AQUA + "WATER CUBE ACTIVE — sneak + right-click to Riptide!");
-        final int[] tick = {0};
-        Bukkit.getScheduler().runTaskTimer(this, task -> {
-            if (!player.isOnline() || !player.isValid() || !player.getWorld().equals(world)
-                    || tick[0]++ >= 100) {
-                activeWaterCubes.remove(id);
-                task.cancel();
-                return;
-            }
-            Location c = player.getLocation().add(0, 1, 0);
-            for (int y = -1; y <= 1; y++) for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) {
-                if (Math.abs(x) != 2 && Math.abs(z) != 2 && Math.abs(y) != 1) continue;
-                world.spawnParticle(Particle.SPLASH, c.clone().add(x, y, z), 3, 0.08, 0.08, 0.08, 0.02);
-                world.spawnParticle(Particle.BUBBLE, c.clone().add(x, y, z), 1, 0.04, 0.04, 0.04, 0.01);
-            }
-        }, 0L, 4L);
-    }
-
-    private void triggerWaterCubeRiptide(Player player) {
-        Vector direction = player.getEyeLocation().getDirection().normalize();
-        Vector launch = direction.multiply(2.8);
-        launch.setY(launch.getY() + 0.45);
-        player.setVelocity(launch);
-        player.setFallDistance(0);
-        Location at = player.getLocation().add(0, 1, 0);
-        World world = player.getWorld();
-        world.playSound(at, Sound.ITEM_TRIDENT_RIPTIDE_3, 1.2f, 0.8f);
-        world.spawnParticle(Particle.SPLASH, at, 90, 0.7, 0.8, 0.7, 0.35);
-        world.spawnParticle(Particle.BUBBLE, at, 55, 0.6, 0.7, 0.6, 0.18);
-        world.spawnParticle(Particle.CLOUD, at, 24, 0.35, 0.4, 0.35, 0.12);
-    }
-
     private void activateEclipseCore(Player player) {
         if (activeDomes.containsKey(player.getUniqueId())) return;
         Player target = player.getWorld().getPlayers().stream()
@@ -713,13 +660,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     }
 
     private Material resolveSpearMaterial() {
-        // Never silently substitute a trident: Judgment must be the actual
-        // Minecraft Spear item. Older server versions return null here.
-        Material spear = Material.matchMaterial("SPEAR");
-        if (spear == null) {
-            getLogger().warning("The Minecraft Spear item is unavailable. /weapon spear requires a server version that includes SPEAR.");
-        }
-        return spear;
+        // Minecraft 1.21.11 adds material variants rather than a generic SPEAR.
+        // Use the strongest vanilla spear so the weapon is unmistakably a spear.
+        return Material.NETHERITE_SPEAR;
     }
 
     private boolean isInfernalCrossbow(ItemStack item) {
