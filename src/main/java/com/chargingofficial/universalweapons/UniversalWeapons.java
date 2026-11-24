@@ -636,6 +636,14 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         if (type == null) return;
         switch (type) {
             case "eclipse_core" -> { event.setCancelled(true); activateEclipseCore(player); }
+            case "judgment_spear" -> {
+                if (player.isSneaking()) {
+                    event.setCancelled(true);
+                    groundSlam(player);
+                }
+                // Normal right-click is deliberately not cancelled: vanilla spear Lunge
+                // enchantment must receive the interaction.
+            }
             case "storm_trident" -> { /* No custom right-click ability; vanilla trident behavior remains. */ }
         }
     }
