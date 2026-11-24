@@ -1,6 +1,15 @@
 package com.chargingofficial.universalweapons;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.inventory.EquipmentSlotGroup;
+import org.bukkit.entity.Arrow;
+import org.bukkit.entity.TippedArrow;
+import org.bukkit.potion.PotionType;
+import org.bukkit.event.player.PlayerMoveEvent;
+
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -52,6 +61,10 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private static final double BONUS_HIT_DAMAGE = 20.0;
 
     private NamespacedKey weaponKey;
+    private NamespacedKey weaponTypeKey;
+    private final Map<UUID, Integer> axeHitCounts = new HashMap<>();
+    private final Set<UUID> groundSlamming = new HashSet<>();
+    private final Map<UUID, DomeSession> activeDomes = new HashMap<>();
     private final Map<UUID, Integer> hitCounts = new HashMap<>();
     private final Map<UUID, Long> dashReadyAt = new HashMap<>();
     private final Map<UUID, Long> grappleReadyAt = new HashMap<>();
@@ -63,6 +76,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     @Override
     public void onEnable() {
         weaponKey = new NamespacedKey(this, "corrupted_calamity");
+        weaponTypeKey = new NamespacedKey(this, "weapon_type");
         if (getCommand("weapon") == null || getCommand("stuck") == null) {
             getLogger().severe("Missing /weapon or /stuck declaration in plugin.yml. Disabling plugin.");
             getServer().getPluginManager().disablePlugin(this);
@@ -89,6 +103,10 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         grappleReadyAt.clear();
         abilityDamageInProgress.clear();
         grapplingPlayers.clear();
+        for (DomeSession dome : new HashSet<>(activeDomes.values())) dome.task.cancel();
+        activeDomes.clear();
+        axeHitCounts.clear();
+        groundSlamming.clear();
         for (BukkitTask task : ritualTasks.values()) task.cancel();
         ritualTasks.clear();
         ritualBlocks.clear();
@@ -391,31 +409,318 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             return true;
         }
 
-        ItemStack weapon = createCalamity();
-        Map<Integer, ItemStack> leftovers = player.getInventory().addItem(weapon);
-        for (ItemStack leftover : leftovers.values()) {
-            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+        String kind = args.length == 0 ? "calamity" : args[0].toLowerCase(java.util.Locale.ROOT);
+        boolean normal = args.length > 1 && args[1].equalsIgnoreCase("normal");
+        ItemStack weapon;
+        switch (kind) {
+            case "calamity" -> weapon = createCalamity();
+            case "crossbow", "infernal" -> weapon = createNamedWeapon(Material.CROSSBOW,
+                    normal ? "Infernal" : "Infernal Requiem", "infernal_crossbow", normal);
+            case "spear", "judgment" -> weapon = createNamedWeapon(
+                    Material.matchMaterial("SPEAR") == null ? Material.TRIDENT : Material.matchMaterial("SPEAR"),
+                    normal ? "Judgment" : "Heaven's Judgment", "judgment_spear", normal);
+            case "trident", "storm" -> weapon = createNamedWeapon(Material.TRIDENT,
+                    normal ? "Storm" : "Poseidon's Wrath", "storm_trident", normal);
+            case "axe", "berserker" -> weapon = createNamedWeapon(Material.NETHERITE_AXE,
+                    normal ? "Berserker" : "Bloodreaver", "bloodreaver_axe", normal);
+            case "slimeball", "eclipse" -> weapon = createEclipseCore();
+            default -> {
+                player.sendMessage(ChatColor.RED + "Use /weapon [calamity|crossbow|spear|trident|axe|slimeball] [normal]");
+                return true;
+            }
         }
-        player.sendMessage(ChatColor.LIGHT_PURPLE + "You received the Corrupted Calamity.");
+        Map<Integer, ItemStack> leftovers = player.getInventory().addItem(weapon);
+        for (ItemStack leftover : leftovers.values()) player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+        player.sendMessage(ChatColor.LIGHT_PURPLE + "You received " + weapon.getItemMeta().getDisplayName() + ChatColor.LIGHT_PURPLE + ".");
         return true;
     }
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND || !isCalamity(event.getItem())) {
-            return;
-        }
+        if (event.getHand() != EquipmentSlot.HAND) return;
         Action action = event.getAction();
-        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
+        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) return;
+        ItemStack held = event.getItem();
+        if (held == null || !held.hasItemMeta()) return;
+        Player player = event.getPlayer();
+        String type = held.getItemMeta().getPersistentDataContainer().get(weaponTypeKey, PersistentDataType.STRING);
+        if (isCalamity(held)) {
+            event.setCancelled(true);
+            if (player.isSneaking()) grapple(player); else dash(player);
             return;
         }
+        if (type == null) return;
+        switch (type) {
+            case "eclipse_core" -> { event.setCancelled(true); activateEclipseCore(player); }
+            case "infernal_crossbow" -> { event.setCancelled(true); fireHarmingBarrage(player); }
+            case "judgment_spear" -> {
+                if (player.isSneaking()) { event.setCancelled(true); groundSlam(player); }
+            }
+            case "storm_trident" -> {
+                if (player.isSneaking()) { event.setCancelled(true); summonWaterCube(player); }
+            }
+        }
+    }
 
-        event.setCancelled(true);
-        Player player = event.getPlayer();
-        if (player.isSneaking()) {
-            grapple(player);
-        } else {
-            dash(player);
+    private ItemStack createNamedWeapon(Material material, String name, String type, boolean normal) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + name);
+        if (!normal) {
+            meta.setLore(switch (type) {
+                case "infernal_crossbow" -> List.of(ChatColor.GRAY + "A volley forged in the Nether.",
+                        ChatColor.GOLD + "Right-click: " + ChatColor.WHITE + "Piercing Harming Arrow Barrage");
+                case "judgment_spear" -> List.of(ChatColor.GRAY + "A weapon of storm and impact.",
+                        ChatColor.GOLD + "Hit: " + ChatColor.WHITE + "Lightning judgment (5 hearts)",
+                        ChatColor.GOLD + "Sneak + right-click: " + ChatColor.WHITE + "Skyfall Ground Slam");
+                case "storm_trident" -> List.of(ChatColor.GRAY + "The fury of the deep.",
+                        ChatColor.AQUA + "Hit: " + ChatColor.WHITE + "Repeated lightning strikes",
+                        ChatColor.AQUA + "Sneak + right-click: " + ChatColor.WHITE + "Water Cube");
+                default -> List.of(ChatColor.GRAY + "A weapon that feeds on battle.",
+                        ChatColor.RED + "Every third hit: " + ChatColor.WHITE + "Berserk for 15 seconds",
+                        ChatColor.RED + "Passive: " + ChatColor.WHITE + "Destroys blocking shields");
+            });
+            meta.getPersistentDataContainer().set(weaponTypeKey, PersistentDataType.STRING, type);
+            switch (type) {
+                case "infernal_crossbow" -> {
+                    addEnchant(meta, "multishot", 10);
+                    addEnchant(meta, "quick_charge", 3);
+                    addEnchant(meta, "unbreaking", 3);
+                    addEnchant(meta, "mending", 1);
+                }
+                case "judgment_spear" -> {
+                    addEnchant(meta, "sharpness", 5); addEnchant(meta, "smite", 5);
+                    addEnchant(meta, "bane_of_arthropods", 5); addEnchant(meta, "fire_aspect", 2);
+                    addEnchant(meta, "looting", 3); addEnchant(meta, "knockback", 2);
+                    addEnchant(meta, "unbreaking", 3); addEnchant(meta, "mending", 1);
+                    addEnchant(meta, "sweeping_edge", 3);
+                    try {
+                        meta.addAttributeModifier(Attribute.ATTACK_SPEED, new AttributeModifier(
+                                new NamespacedKey(this, "judgment_infinite_attack_speed"),
+                                1024.0, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
+                    } catch (IllegalArgumentException ignored) { }
+                }
+                case "storm_trident" -> {
+                    addEnchant(meta, "riptide", 10);
+                    addEnchant(meta, "loyalty", 3); addEnchant(meta, "impaling", 5);
+                    addEnchant(meta, "density", 5); addEnchant(meta, "breach", 4);
+                    addEnchant(meta, "wind_burst", 3); addEnchant(meta, "unbreaking", 3);
+                    addEnchant(meta, "mending", 1);
+                }
+                case "bloodreaver_axe" -> {
+                    addEnchant(meta, "sharpness", 5); addEnchant(meta, "smite", 5);
+                    addEnchant(meta, "bane_of_arthropods", 5); addEnchant(meta, "efficiency", 5);
+                    addEnchant(meta, "fortune", 3); addEnchant(meta, "fire_aspect", 2);
+                    addEnchant(meta, "unbreaking", 3); addEnchant(meta, "mending", 1);
+                }
+            }
+        }
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private void addEnchant(ItemMeta meta, String key, int level) {
+        org.bukkit.enchantments.Enchantment enchantment =
+                org.bukkit.enchantments.Enchantment.getByKey(NamespacedKey.minecraft(key));
+        if (enchantment != null) meta.addEnchant(enchantment, level, true);
+    }
+
+    private ItemStack createEclipseCore() {
+        ItemStack item = new ItemStack(Material.SLIME_BALL);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.BLACK.toString() + ChatColor.BOLD + "Eclipse Core");
+        meta.setLore(List.of(ChatColor.GRAY + "A sphere of living darkness.",
+                ChatColor.DARK_PURPLE + "Right-click: " + ChatColor.WHITE + "Trap you and the nearest player in a black dome."));
+        meta.getPersistentDataContainer().set(weaponTypeKey, PersistentDataType.STRING, "eclipse_core");
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private void fireHarmingBarrage(Player player) {
+        Location origin = player.getEyeLocation();
+        Vector forward = origin.getDirection().normalize();
+        Vector right = new Vector(-forward.getZ(), 0, forward.getX()).normalize();
+        World world = player.getWorld();
+        world.playSound(origin, Sound.ITEM_CROSSBOW_SHOOT, 1.2f, 0.65f);
+        for (int i = 0; i < 18; i++) {
+            double side = (i % 6 - 2.5) * 0.075;
+            double vertical = (i / 6 - 1) * 0.10;
+            Vector direction = forward.clone().add(right.clone().multiply(side)).add(new Vector(0, vertical, 0)).normalize();
+            TippedArrow arrow = world.spawn(origin.clone().add(direction.clone().multiply(0.8)), TippedArrow.class);
+            arrow.setShooter(player);
+            arrow.setVelocity(direction.multiply(2.8));
+            arrow.setBasePotionType(PotionType.STRONG_HARMING);
+            arrow.setPierceLevel(4);
+            arrow.setFireTicks(100);
+            arrow.setPickupStatus(org.bukkit.entity.AbstractArrow.PickupStatus.DISALLOWED);
+        }
+        world.spawnParticle(Particle.FLAME, origin, 45, 0.35, 0.3, 0.35, 0.08);
+    }
+
+    private void groundSlam(Player player) {
+        UUID id = player.getUniqueId();
+        if (!groundSlamming.add(id)) return;
+        player.setVelocity(new Vector(0, 1.65, 0));
+        player.setFallDistance(0);
+        player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WIND_CHARGE_WIND_BURST, 1, 0.8f);
+        player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation(), 35, 0.7, 0.3, 0.7, 0.12);
+        final int[] ticks = {0};
+        Bukkit.getScheduler().runTaskTimer(this, task -> {
+            if (!player.isOnline() || !player.isValid() || ticks[0]++ > 80) {
+                groundSlamming.remove(id); task.cancel(); return;
+            }
+            player.setFallDistance(0);
+            if (ticks[0] > 12) player.setVelocity(new Vector(player.getVelocity().getX(), -2.8, player.getVelocity().getZ()));
+            if (ticks[0] > 12 && player.isOnGround()) {
+                Location impact = player.getLocation();
+                World world = player.getWorld();
+                world.spawnParticle(Particle.EXPLOSION, impact, 2);
+                world.spawnParticle(Particle.BLOCK, impact, 90, 2.2, 0.35, 2.2, Material.DEEPSLATE.createBlockData());
+                world.spawnParticle(Particle.CLOUD, impact, 65, 1.8, 0.4, 1.8, 0.16);
+                world.playSound(impact, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.7f);
+                for (Entity entity : world.getNearbyEntities(impact, 5, 3, 5)) {
+                    if (entity instanceof LivingEntity target && entity != player) {
+                        damageFromAbility(player, target, 8.0);
+                        target.setVelocity(target.getVelocity().add(new Vector(0, 0.65, 0)));
+                    }
+                }
+                player.setFallDistance(0);
+                groundSlamming.remove(id); task.cancel();
+            }
+        }, 1L, 1L);
+    }
+
+    private void summonWaterCube(Player player) {
+        Location center = player.getLocation().add(0, 1, 0);
+        World world = player.getWorld();
+        world.playSound(center, Sound.ITEM_TRIDENT_RIPTIDE_1, 1.0f, 0.8f);
+        final int[] tick = {0};
+        Bukkit.getScheduler().runTaskTimer(this, task -> {
+            if (!player.isOnline() || !player.isValid() || tick[0]++ >= 100) { task.cancel(); return; }
+            Location c = player.getLocation().add(0, 1, 0);
+            for (int y = -1; y <= 1; y++) for (int x = -2; x <= 2; x++) for (int z = -2; z <= 2; z++) {
+                if (Math.abs(x) != 2 && Math.abs(z) != 2 && Math.abs(y) != 1) continue;
+                world.spawnParticle(Particle.SPLASH, c.clone().add(x, y, z), 3, 0.08, 0.08, 0.08, 0.02);
+                world.spawnParticle(Particle.BUBBLE, c.clone().add(x, y, z), 1, 0.04, 0.04, 0.04, 0.01);
+            }
+        }, 0L, 4L);
+    }
+
+    private void activateEclipseCore(Player player) {
+        if (activeDomes.containsKey(player.getUniqueId())) return;
+        Player target = player.getWorld().getPlayers().stream()
+                .filter(other -> other != player && other.getLocation().distanceSquared(player.getLocation()) <= 24 * 24)
+                .min(java.util.Comparator.comparingDouble(other -> other.getLocation().distanceSquared(player.getLocation())))
+                .orElse(null);
+        if (target == null) {
+            player.sendMessage(ChatColor.RED + "No other player is within 24 blocks.");
+            return;
+        }
+        Location center = player.getLocation().clone().add(target.getLocation()).multiply(0.5);
+        double radius = Math.min(14.0, Math.max(5.0, player.getLocation().distance(target.getLocation()) / 2.0 + 3.0));
+        DomeSession dome = new DomeSession(player.getUniqueId(), target.getUniqueId(), center, radius);
+        activeDomes.put(player.getUniqueId(), dome);
+        activeDomes.put(target.getUniqueId(), dome);
+        player.sendTitle(ChatColor.BLACK + "" + ChatColor.BOLD + "ECLIPSE", ChatColor.DARK_PURPLE + "The void closes in", 5, 35, 10);
+        target.sendTitle(ChatColor.BLACK + "" + ChatColor.BOLD + "ECLIPSE", ChatColor.DARK_PURPLE + "You are trapped", 5, 35, 10);
+        World world = player.getWorld();
+        world.playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 1.4f, 0.55f);
+        dome.task = Bukkit.getScheduler().runTaskTimer(this, () -> {
+            if (!player.isOnline() || !target.isOnline() || !player.isValid() || !target.isValid()
+                    || !player.getWorld().equals(world) || !target.getWorld().equals(world)) {
+                endDome(dome); return;
+            }
+            for (int y = 0; y <= 16; y++) {
+                double phi = Math.PI * y / 16.0;
+                double ring = radius * Math.sin(phi);
+                double height = radius * Math.cos(phi);
+                for (int i = 0; i < 48; i++) {
+                    double theta = Math.PI * 2 * i / 48.0;
+                    Location p = center.clone().add(Math.cos(theta) * ring, height + radius, Math.sin(theta) * ring);
+                    world.spawnParticle(Particle.DUST, p, 2, 0.025, 0.025, 0.025,
+                            new Particle.DustOptions(Color.fromRGB(5, 5, 8), 2.0f));
+                    if (i % 3 == 0) world.spawnParticle(Particle.SMOKE, p, 1, 0.04, 0.04, 0.04, 0.005);
+                }
+            }
+        }, 0L, 5L);
+        Bukkit.getScheduler().runTaskLater(this, () -> endDome(dome), 240L);
+    }
+
+    private void endDome(DomeSession dome) {
+        dome.task.cancel();
+        activeDomes.remove(dome.first);
+        activeDomes.remove(dome.second);
+        Player first = Bukkit.getPlayer(dome.first);
+        Player second = Bukkit.getPlayer(dome.second);
+        if (first != null && first.isOnline()) first.sendMessage(ChatColor.GRAY + "The Eclipse dome fades.");
+        if (second != null && second.isOnline()) second.sendMessage(ChatColor.GRAY + "The Eclipse dome fades.");
+    }
+
+    private static final class DomeSession {
+        private final UUID first, second;
+        private final Location center;
+        private final double radius;
+        private BukkitTask task;
+        private DomeSession(UUID first, UUID second, Location center, double radius) {
+            this.first = first; this.second = second; this.center = center; this.radius = radius;
+        }
+    }
+
+    @EventHandler
+    public void keepPlayersInsideEclipse(PlayerMoveEvent event) {
+        DomeSession dome = activeDomes.get(event.getPlayer().getUniqueId());
+        if (dome == null || event.getTo() == null) return;
+        if (!event.getTo().getWorld().equals(dome.center.getWorld())) { event.setTo(event.getFrom()); return; }
+        if (event.getTo().distanceSquared(dome.center) > dome.radius * dome.radius) {
+            event.setTo(event.getFrom());
+        }
+    }
+
+    @EventHandler
+    public void onAdditionalWeaponHit(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player player) || !(event.getEntity() instanceof LivingEntity victim)) return;
+        ItemStack held = player.getInventory().getItemInMainHand();
+        if (!held.hasItemMeta()) return;
+        String type = held.getItemMeta().getPersistentDataContainer().get(weaponTypeKey, PersistentDataType.STRING);
+        if (type == null || event.isCancelled()) return;
+        switch (type) {
+            case "judgment_spear" -> {
+                victim.getWorld().strikeLightningEffect(victim.getLocation());
+                damageFromAbility(player, victim, 10.0);
+                victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.1f);
+            }
+            case "storm_trident" -> {
+                for (int i = 0; i < 5; i++) {
+                    final int delay = i * 2;
+                    Bukkit.getScheduler().runTaskLater(this, () -> {
+                        if (victim.isValid() && !victim.isDead() && player.isOnline()) {
+                            victim.getWorld().strikeLightningEffect(victim.getLocation());
+                            damageFromAbility(player, victim, 3.0);
+                        }
+                    }, delay);
+                }
+            }
+            case "bloodreaver_axe" -> {
+                if (victim instanceof Player target && target.isBlocking()) {
+                    EquipmentSlot hand = target.getActiveItemHand();
+                    ItemStack shield = hand == EquipmentSlot.HAND ? target.getInventory().getItemInMainHand()
+                            : target.getInventory().getItemInOffHand();
+                    if (shield.getType() == Material.SHIELD) {
+                        if (hand == EquipmentSlot.HAND) target.getInventory().setItemInMainHand(new ItemStack(Material.AIR));
+                        else target.getInventory().setItemInOffHand(new ItemStack(Material.AIR));
+                        target.clearActiveItem();
+                        target.broadcastSlotBreak(hand);
+                        target.getWorld().playSound(target.getLocation(), Sound.ITEM_SHIELD_BREAK, 1, 0.8f);
+                    }
+                }
+                int hits = axeHitCounts.merge(player.getUniqueId(), 1, Integer::sum);
+                if (hits % 3 == 0) {
+                    player.addPotionEffect(new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.SPEED, 300, 2, true, true));
+                    player.addPotionEffect(new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.STRENGTH, 300, 2, true, true));
+                    player.sendTitle(ChatColor.RED + "" + ChatColor.BOLD + "BERSERK", ChatColor.DARK_RED + "Speed III • Strength III", 5, 35, 10);
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_RAVAGER_ROAR, 1.2f, 0.7f);
+                }
+            }
         }
     }
 
