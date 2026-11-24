@@ -460,7 +460,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         switch (type) {
             case "eclipse_core" -> { event.setCancelled(true); activateEclipseCore(player); }
             case "judgment_spear" -> {
-                if (player.isSneaking()) { event.setCancelled(true); groundSlam(player); }
+                event.setCancelled(true);
+                if (player.isSneaking()) groundSlam(player);
+                else spearLunge(player);
             }
             case "storm_trident" -> { /* No custom right-click ability; vanilla trident behavior remains. */ }
         }
@@ -476,6 +478,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         ChatColor.GOLD + "Arrows fired from this crossbow ignite.");
                 case "judgment_spear" -> List.of(ChatColor.GRAY + "A weapon of storm and impact.",
                         ChatColor.GOLD + "Hit: " + ChatColor.WHITE + "Lightning judgment (5 hearts)",
+                        ChatColor.GOLD + "Right-click: " + ChatColor.WHITE + "Heaven's Lunge",
                         ChatColor.GOLD + "Sneak + right-click: " + ChatColor.WHITE + "Skyfall Ground Slam");
                 case "storm_trident" -> List.of(ChatColor.GRAY + "The fury of the deep.",
                         ChatColor.AQUA + "Hit: " + ChatColor.WHITE + "Repeated lightning strikes");
