@@ -29,6 +29,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.Component;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.RayTraceResult;
@@ -117,8 +118,11 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     }
 
     private Location getRitualBlock(Player player) {
-        Location feet = player.getLocation();
-        Block beneath = feet.getBlock().getRelative(BlockFace.DOWN);
+        // Player#getLocation() can floor to the command-block's Y when the
+        // player's feet are exactly on (or fractionally below) the block top.
+        // Sample just below the feet so the supporting block is found reliably.
+        Location supportPoint = player.getLocation().clone().subtract(0.0, 0.01, 0.0);
+        Block beneath = supportPoint.getBlock();
         Material type = beneath.getType();
         if (type != Material.COMMAND_BLOCK
                 && type != Material.CHAIN_COMMAND_BLOCK
@@ -155,7 +159,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         World world = player.getWorld();
         player.sendMessage(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD
                 + "The command block begins to resonate...");
-        player.sendActionBar(ChatColor.LIGHT_PURPLE + "Calamity awakening: 0%");
+        player.sendActionBar(Component.text("CALAMITY AWAKENING 0%"));
 
         BukkitRunnable ritual = new BukkitRunnable() {
             private int elapsedTicks = 0;
@@ -243,10 +247,11 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                             ? ChatColor.DARK_PURPLE + "■"
                             : ChatColor.GRAY + "■");
                 }
-                player.sendActionBar(ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD
+                String actionBar = ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD
                         + "AWAKENING " + ChatColor.WHITE + progress + "% "
                         + bar + ChatColor.RESET + ChatColor.LIGHT_PURPLE
-                        + " " + String.format(java.util.Locale.US, "%.1fs", (120 - elapsedTicks) / 20.0));
+                        + " " + String.format(java.util.Locale.US, "%.1fs", (120 - elapsedTicks) / 20.0);
+                player.sendActionBar(LegacyComponentSerializer.legacySection().deserialize(actionBar));
 
                 if (elapsedTicks % 20 == 0) {
                     world.playSound(at, Sound.BLOCK_BEACON_AMBIENT,
@@ -334,7 +339,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 ritualTasks.remove(id);
                 ritualBlocks.remove(id);
                 if (player.isOnline()) {
-                    player.sendActionBar(ChatColor.RED + "Ritual interrupted. Stay on the command block and keep Calamity in your main hand.");
+                    player.sendActionBar(Component.text("Ritual interrupted. Stay on the command block and keep Calamity in your main hand."));
                     player.getWorld().playSound(player.getLocation(),
                             Sound.BLOCK_BEACON_DEACTIVATE, 0.7f, 0.7f);
                 }
