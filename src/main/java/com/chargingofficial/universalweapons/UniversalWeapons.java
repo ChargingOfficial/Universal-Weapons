@@ -90,12 +90,13 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         getCommand("weapon").setTabCompleter(this);
         getCommand("stuck").setExecutor(this);
         getServer().getPluginManager().registerEvents(this, this);
-        // Detect players standing on command blocks while holding a mace named "Calamity".
+        // Detect every weapon ritual while a player stands on a command block.
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             for (Player online : Bukkit.getOnlinePlayers()) {
-                if (isRitualReady(online) && !ritualTasks.containsKey(online.getUniqueId())) {
-                    beginCalamityRitual(online);
-                }
+                if (ritualTasks.containsKey(online.getUniqueId())) continue;
+                String ritualType = getRitualType(online);
+                if ("calamity".equals(ritualType)) beginCalamityRitual(online);
+                else if (ritualType != null) beginWeaponRitual(online, ritualType);
             }
         }, 1L, 5L);
         getLogger().info("Universal Weapons enabled for Paper 1.21.11.");
@@ -155,6 +156,142 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             return null;
         }
         return beneath.getLocation();
+    }
+
+
+    private String getRitualType(Player player) {
+        if (getRitualBlock(player) == null) return null;
+        ItemStack held = player.getInventory().getItemInMainHand();
+        if (!held.hasItemMeta() || !held.getItemMeta().hasDisplayName()) return null;
+        String name = ChatColor.stripColor(held.getItemMeta().getDisplayName()).trim();
+        return switch (name.toLowerCase(java.util.Locale.ROOT)) {
+            case "calamity" -> held.getType() == Material.MACE ? "calamity" : null;
+            case "infernal" -> held.getType() == Material.CROSSBOW ? "infernal_crossbow" : null;
+            case "judgment" -> held.getType() == resolveSpearMaterial() ? "judgment_spear" : null;
+            case "storm" -> held.getType() == Material.TRIDENT ? "storm_trident" : null;
+            case "berserker" -> held.getType() == Material.NETHERITE_AXE ? "bloodreaver_axe" : null;
+            case "eclipse" -> held.getType() == Material.SLIME_BALL ? "eclipse_core" : null;
+            default -> null;
+        };
+    }
+
+    private ItemStack createRitualResult(String type) {
+        return switch (type) {
+            case "infernal_crossbow" -> createNamedWeapon(Material.CROSSBOW, "Infernal Requiem", type, false);
+            case "judgment_spear" -> createNamedWeapon(resolveSpearMaterial(), "Heaven's Judgment", type, false);
+            case "storm_trident" -> createNamedWeapon(Material.TRIDENT, "Poseidon's Wrath", type, false);
+            case "bloodreaver_axe" -> createNamedWeapon(Material.NETHERITE_AXE, "Bloodreaver", type, false);
+            case "eclipse_core" -> createEclipseCore();
+            default -> null;
+        };
+    }
+
+    private void beginWeaponRitual(Player player, String type) {
+        UUID id = player.getUniqueId();
+        Location startingBlock = getRitualBlock(player);
+        if (startingBlock == null || ritualTasks.containsKey(id)) return;
+        ritualBlocks.put(id, startingBlock.clone());
+        World world = player.getWorld();
+        String displayName = switch (type) {
+            case "infernal_crossbow" -> "INFERNAL REQUIEM";
+            case "judgment_spear" -> "HEAVEN'S JUDGMENT";
+            case "storm_trident" -> "POSEIDON'S WRATH";
+            case "bloodreaver_axe" -> "BLOODREAVER";
+            case "eclipse_core" -> "ECLIPSE CORE";
+            default -> "WEAPON";
+        };
+        player.sendMessage(ChatColor.GOLD + "" + ChatColor.BOLD + displayName
+                + ChatColor.YELLOW + " ritual has begun. Stay still and keep holding the item!");
+        player.sendActionBar(ChatColor.GOLD + displayName + " AWAKENING 0%");
+
+        BukkitRunnable ritual = new BukkitRunnable() {
+            private int elapsedTicks = 0;
+            private static final int DURATION_TICKS = 600;
+
+            @Override
+            public void run() {
+                if (!player.isOnline() || !player.isValid() || player.isDead()
+                        || !player.getWorld().equals(world)
+                        || getRitualType(player) == null
+                        || !type.equals(getRitualType(player))) {
+                    interrupt();
+                    return;
+                }
+                Location currentBlock = getRitualBlock(player);
+                Location originalBlock = ritualBlocks.get(id);
+                if (currentBlock == null || originalBlock == null
+                        || !currentBlock.getWorld().equals(originalBlock.getWorld())
+                        || currentBlock.getBlockX() != originalBlock.getBlockX()
+                        || currentBlock.getBlockY() != originalBlock.getBlockY()
+                        || currentBlock.getBlockZ() != originalBlock.getBlockZ()) {
+                    interrupt();
+                    return;
+                }
+
+                elapsedTicks++;
+                Location center = player.getLocation().add(0, 1.0, 0);
+                int progress = Math.min(100, elapsedTicks * 100 / DURATION_TICKS);
+                player.sendActionBar(ChatColor.GOLD + displayName + " "
+                        + ChatColor.WHITE + progress + "% "
+                        + ChatColor.YELLOW + "■".repeat(progress / 5)
+                        + ChatColor.DARK_GRAY + "■".repeat(20 - progress / 5));
+
+                Particle primary = switch (type) {
+                    case "infernal_crossbow" -> Particle.FLAME;
+                    case "judgment_spear" -> Particle.ELECTRIC_SPARK;
+                    case "storm_trident" -> Particle.DRIPPING_WATER;
+                    case "bloodreaver_axe" -> Particle.CRIMSON_SPORE;
+                    case "eclipse_core" -> Particle.SQUID_INK;
+                    default -> Particle.END_ROD;
+                };
+                Particle secondary = switch (type) {
+                    case "infernal_crossbow" -> Particle.SOUL_FIRE_FLAME;
+                    case "judgment_spear" -> Particle.END_ROD;
+                    case "storm_trident" -> Particle.ELECTRIC_SPARK;
+                    case "bloodreaver_axe" -> Particle.ASH;
+                    case "eclipse_core" -> Particle.PORTAL;
+                    default -> Particle.CRIT;
+                };
+                double radius = 1.0 + progress / 100.0;
+                for (int i = 0; i < 18; i++) {
+                    double angle = elapsedTicks * 0.12 + Math.PI * 2.0 * i / 18.0;
+                    Location point = center.clone().add(Math.cos(angle) * radius,
+                            0.15 + (i % 5) * 0.42, Math.sin(angle) * radius);
+                    world.spawnParticle(primary, point, 2, 0.08, 0.08, 0.08, 0.02);
+                    world.spawnParticle(secondary, point, 1, 0.04, 0.05, 0.04, 0.01);
+                }
+                if (elapsedTicks % 20 == 0) {
+                    float pitch = 0.65f + progress / 180.0f;
+                    world.playSound(center, Sound.BLOCK_BEACON_AMBIENT, 0.8f, pitch);
+                }
+
+                if (elapsedTicks >= DURATION_TICKS) {
+                    cancel();
+                    ritualTasks.remove(id);
+                    ritualBlocks.remove(id);
+                    ItemStack result = createRitualResult(type);
+                    if (result == null) {
+                        player.sendMessage(ChatColor.RED + "Ritual failed: result item could not be created.");
+                        return;
+                    }
+                    player.getInventory().setItemInMainHand(result);
+                    world.spawnParticle(Particle.EXPLOSION, center, 2);
+                    world.spawnParticle(primary, center, 180, 1.2, 1.5, 1.2, 0.12);
+                    world.spawnParticle(secondary, center, 140, 1.0, 1.3, 1.0, 0.10);
+                    world.playSound(center, Sound.ENTITY_PLAYER_LEVELUP, 1.2f, 0.7f);
+                    player.sendTitle(ChatColor.GOLD + "" + ChatColor.BOLD + displayName + " AWAKENED",
+                            ChatColor.YELLOW + "The weapon answers your call", 10, 50, 20);
+                }
+            }
+
+            private void interrupt() {
+                cancel();
+                ritualTasks.remove(id);
+                ritualBlocks.remove(id);
+                if (player.isOnline()) player.sendActionBar(ChatColor.RED + "Ritual interrupted.");
+            }
+        };
+        ritualTasks.put(id, ritual.runTaskTimer(this, 1L, 1L));
     }
 
     private boolean isRitualReady(Player player) {
@@ -430,7 +567,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     normal ? "Storm" : "Poseidon's Wrath", "storm_trident", normal);
             case "axe", "berserker" -> weapon = createNamedWeapon(Material.NETHERITE_AXE,
                     normal ? "Berserker" : "Bloodreaver", "bloodreaver_axe", normal);
-            case "slimeball", "eclipse" -> weapon = createEclipseCore();
+            case "slimeball", "eclipse" -> weapon = normal
+                    ? createNamedWeapon(Material.SLIME_BALL, "Eclipse", "eclipse_core", true)
+                    : createEclipseCore();
             default -> {
                 player.sendMessage(ChatColor.RED + "Use /weapon [calamity|crossbow|spear|trident|axe|slimeball] [normal]");
                 return true;
@@ -497,11 +636,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         if (type == null) return;
         switch (type) {
             case "eclipse_core" -> { event.setCancelled(true); activateEclipseCore(player); }
-            case "judgment_spear" -> {
-                event.setCancelled(true);
-                if (player.isSneaking()) groundSlam(player);
-                else spearLunge(player);
-            }
             case "storm_trident" -> { /* No custom right-click ability; vanilla trident behavior remains. */ }
         }
     }
@@ -537,7 +671,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     addEnchant(meta, "bane_of_arthropods", 5); addEnchant(meta, "fire_aspect", 2);
                     addEnchant(meta, "looting", 3); addEnchant(meta, "knockback", 2);
                     addEnchant(meta, "unbreaking", 3); addEnchant(meta, "mending", 1);
-                    addEnchant(meta, "sweeping_edge", 3);
+                    addEnchant(meta, "sweeping_edge", 3);\n                    addEnchant(meta, "lunge", 3);
                     try {
                         meta.addAttributeModifier(Attribute.ATTACK_SPEED, new AttributeModifier(
                                 new NamespacedKey(this, "judgment_infinite_attack_speed"),
