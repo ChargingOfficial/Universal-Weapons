@@ -164,3 +164,7 @@ Each awakening has its own particle choreography rather than sharing a single ri
 - **Eclipse Core:** inward-pulling portal rings, squid ink, reverse-portal distortions, and Enderman/portal audio.
 
 Weapon-specific sound cues play throughout the 30-second channel, with additional shared chimes and respawn-anchor charging sounds. Ritual lightning and finale effects remain visual-only.
+
+
+### Ritual progression and finales
+All six 30-second rituals now build through ten distinct 10% stages. Each stage increases particle count and spread, adds a stronger weapon-specific burst, and raises the pitch and intensity of charge-up sounds from the opening through 100%. At completion, particles disperse outward in many directions and each weapon has its own awakening sound. Calamity uses its own separate corruption-stage effects and a larger outward void burst.
