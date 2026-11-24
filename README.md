@@ -54,7 +54,7 @@ Use the command variants below as an operator (or with the weapon permission). A
 
 ### Weapon awakening rituals
 
-All rituals activate while standing on a regular, chain, or repeating command block and holding the matching renamed base item in the main hand. Each ritual takes 30 seconds. Keep holding the item and remain on the same command block; moving away, switching items, dying, or disconnecting interrupts the ritual. Completion replaces the held item with its custom weapon.
+All rituals activate while standing on a regular, chain, or repeating command block and holding the matching renamed base item in the main hand. Each ritual takes 30 seconds. Every ritual ends with a visual-only lightning strike, electric sparks, and a thunder sound. Custom weapon names use distinct colors: Infernal Requiem red, Heaven's Judgment aqua, Poseidon's Wrath blue, Bloodreaver dark red, and Eclipse Core black; Corrupted Calamity remains purple. Keep holding the item and remain on the same command block; moving away, switching items, dying, or disconnecting interrupts the ritual. Completion replaces the held item with its custom weapon.
 
 | Hold this item | Ritual result |
 |---|---|
