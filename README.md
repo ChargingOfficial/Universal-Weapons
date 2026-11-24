@@ -18,7 +18,7 @@ Use `/weapon` to receive the mace. It requires the `universalweapons.weapon` per
 
 ### Calamity awakening ritual
 
-Stand on a command block (regular, chain, or repeating) while holding a mace named **Calamity** in your main hand. The ritual channels for 30 seconds with rotating purple particles and sound effects. Stay on the command block and keep holding the mace until the ritual completes; moving away or switching items interrupts it. Completion transforms the mace into **Corrupted Calamity**.
+Stand on a command block (regular, chain, or repeating) while holding a mace named **Calamity** in your main hand. The ritual channels for 30 seconds with expanded, widely spaced purple particle rings, larger spirals and energy columns, periodic lightning, and layered beacon, amethyst, Wither, and respawn-anchor sounds. Its completion features a multi-bolt visual-only lightning finale with thunder, dragon, Wither, and sonic-boom sounds. Stay on the command block and keep holding the mace until the ritual completes; moving away or switching items interrupts it. Completion transforms the mace into **Corrupted Calamity**.
 
 ### Built-in enchantments
 
