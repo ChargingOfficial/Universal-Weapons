@@ -53,18 +53,18 @@ Use the command variants below as an operator (or with the weapon permission). A
 | `/weapon slimeball` | Eclipse Core | — |
 
 ### Infernal Requiem
-- Crossbow with Multishot X and Quick Charge X.
-- The crossbow has no custom active ability. Arrows fired from it ignite automatically; Multishot X and Quick Charge X remain.
+- Crossbow with Multishot V and Quick Charge X.
+- The crossbow has no custom active ability. Arrows fired from it ignite automatically; Multishot V and Quick Charge X remain.
 
 ### Heaven's Judgment
-- Uses the actual Minecraft spear item (not a trident) with a large attack-speed modifier and high-level combat enchantments.
+- Uses the actual Minecraft spear item (not a trident) with a large attack-speed modifier and high-level combat enchantments. If the server version does not contain the spear item, `/weapon spear` refuses to give an item instead of substituting a trident.
 - Every hit calls a lightning visual and deals 5 hearts of bonus damage.
-- Sneak + right-click launches the wielder upward, then drives them into the ground. The impact damages and knocks back nearby entities; the wielder's fall damage is suppressed.
+- Sneak + right-click launches the wielder upward, then drives them into the ground. The impact damages and knocks back nearby entities; the wielder's fall damage is suppressed. Has a 10-second cooldown.
 
 ### Poseidon's Wrath
-- Trident with Riptide X and the mace enchantments at their maximum levels (Density V, Breach IV, Wind Burst III).
+- Trident with Riptide V and the mace enchantments at their maximum levels (Density V, Breach IV, Wind Burst III).
 - Hits trigger five follow-up lightning strikes, each dealing bonus damage.
-- Sneak + right-click surrounds the wielder with a temporary water-particle cube. It does not place or destroy world blocks.
+- Sneak + right-click surrounds the wielder with a temporary water-particle cube for 5 seconds. While it is active, sneak + right-click again launches a custom Riptide burst in the direction you face. It does not place or destroy world blocks.
 
 ### Bloodreaver
 - Netherite axe with high-level combat and utility enchantments.
