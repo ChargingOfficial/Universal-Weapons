@@ -725,15 +725,17 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             case "storm_trident" -> {
                 // One immediate lightning hit plus four rapid follow-ups. The ability
                 // damage guard prevents these bonus hits from recursively retriggering.
+                final Player tridentOwner = player;
+                final LivingEntity tridentVictim = victim;
                 for (int i = 0; i < 5; i++) {
                     final int delay = i * 2;
                     Bukkit.getScheduler().runTaskLater(this, () -> {
-                        if (victim.isValid() && !victim.isDead() && player.isOnline()
-                                && player.getWorld().equals(victim.getWorld())) {
-                            Location strikeAt = victim.getLocation();
-                            victim.getWorld().strikeLightningEffect(strikeAt);
-                            damageFromAbility(player, victim, 3.0);
-                            victim.getWorld().playSound(strikeAt,
+                        if (tridentVictim.isValid() && !tridentVictim.isDead() && tridentOwner.isOnline()
+                                && tridentOwner.getWorld().equals(tridentVictim.getWorld())) {
+                            Location strikeAt = tridentVictim.getLocation();
+                            tridentVictim.getWorld().strikeLightningEffect(strikeAt);
+                            damageFromAbility(tridentOwner, tridentVictim, 3.0);
+                            tridentVictim.getWorld().playSound(strikeAt,
                                     Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.65f, 1.35f);
                         }
                     }, delay);
