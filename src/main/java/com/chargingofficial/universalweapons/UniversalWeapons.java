@@ -234,14 +234,61 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     }
                 }
 
+                // Live 20-segment progress bar, refreshed every tick.
+                int progress = Math.min(100, elapsedTicks * 100 / 120);
+                int filled = progress / 5;
+                StringBuilder bar = new StringBuilder();
+                for (int segment = 0; segment < 20; segment++) {
+                    bar.append(segment < filled
+                            ? ChatColor.DARK_PURPLE + "■"
+                            : ChatColor.GRAY + "■");
+                }
+                player.sendActionBar(ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD
+                        + "AWAKENING " + ChatColor.WHITE + progress + "% "
+                        + bar + ChatColor.RESET + ChatColor.LIGHT_PURPLE
+                        + " " + String.format(java.util.Locale.US, "%.1fs", (120 - elapsedTicks) / 20.0));
+
                 if (elapsedTicks % 20 == 0) {
-                    int progress = Math.min(100, elapsedTicks * 100 / 120);
                     world.playSound(at, Sound.BLOCK_BEACON_AMBIENT,
                             1.0f, 0.45f + elapsedTicks / 120.0f);
                     world.playSound(at, Sound.BLOCK_BEACON_POWER_SELECT,
                             0.55f, 0.65f + elapsedTicks / 240.0f);
-                    player.sendActionBar(ChatColor.LIGHT_PURPLE + "CORRUPTION AWAKENING "
-                            + ChatColor.DARK_PURPLE + "[" + progress + "%]");
+                }
+
+                // The aura becomes increasingly violent in the final third.
+                if (elapsedTicks >= 80) {
+                    double surge = 1.0 + (elapsedTicks - 80) / 20.0;
+                    for (int i = 0; i < 8; i++) {
+                        double a = angle * 1.8 + Math.PI * 2.0 * i / 8.0;
+                        double y = 0.25 + ((elapsedTicks * 0.13 + i * 0.37) % 3.0);
+                        Location surgePoint = at.clone().add(
+                                Math.cos(a) * (1.1 + surge * 0.25), y,
+                                Math.sin(a) * (1.1 + surge * 0.25));
+                        world.spawnParticle(Particle.REVERSE_PORTAL, surgePoint,
+                                7, 0.12, 0.16, 0.12, 0.12);
+                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, surgePoint,
+                                4, 0.08, 0.12, 0.08, 0.035);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, surgePoint,
+                                3, 0.08, 0.10, 0.08, 0.05);
+                    }
+                    world.spawnParticle(Particle.DRAGON_BREATH, at.clone().add(0, 1.0, 0),
+                            18 + (elapsedTicks - 80), 0.8, 1.0, 0.8, 0.06);
+                }
+
+                // Final two seconds: frequent surges, stronger sound, and a bright pulse.
+                if (elapsedTicks >= 100) {
+                    if (elapsedTicks % 5 == 0) {
+                        world.playSound(at, Sound.BLOCK_BEACON_ACTIVATE,
+                                0.7f, 0.8f + (elapsedTicks - 100) * 0.035f);
+                    }
+                    if (elapsedTicks % 4 == 0) {
+                        world.spawnParticle(Particle.FLASH, at.clone().add(0, 1.1, 0),
+                                1, 0.35, 0.55, 0.35, 0.0);
+                        world.spawnParticle(Particle.SONIC_BOOM, at.clone().add(0, 1.0, 0),
+                                1, 0.0, 0.0, 0.0, 0.0);
+                        world.spawnParticle(Particle.PORTAL, at.clone().add(0, 1.0, 0),
+                                90, 1.0, 1.2, 1.0, 0.24);
+                    }
                 }
 
                 if (elapsedTicks >= 120) {
