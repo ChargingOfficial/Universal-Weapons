@@ -54,10 +54,10 @@ Use the command variants below as an operator (or with the weapon permission). A
 
 ### Infernal Requiem
 - Crossbow with Multishot X and Quick Charge III.
-- Right-click launches a spread volley of 18 flaming, strong-harming tipped arrows with Piercing IV.
+- The crossbow has no custom active ability. Arrows fired from it ignite automatically; Multishot X and Quick Charge III remain.
 
 ### Heaven's Judgment
-- Spear with a large attack-speed modifier and high-level combat enchantments.
+- Uses the actual Minecraft spear item (not a trident) with a large attack-speed modifier and high-level combat enchantments.
 - Every hit calls a lightning visual and deals 5 hearts of bonus damage.
 - Sneak + right-click launches the wielder upward, then drives them into the ground. The impact damages and knocks back nearby entities; the wielder's fall damage is suppressed.
 
