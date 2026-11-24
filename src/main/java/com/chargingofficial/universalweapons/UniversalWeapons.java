@@ -54,10 +54,11 @@ import java.util.UUID;
 /**
  * Paper 1.21.11 implementation of the Corrupted Calamity weapon.
  */
-public final class UniversalWeapons extends JavaPlugin implements Listener, CommandExecutor {
+public final class UniversalWeapons extends JavaPlugin implements Listener, CommandExecutor, org.bukkit.command.TabCompleter {
     private static final long DASH_COOLDOWN_MS = 1_800L;
     private static final long GRAPPLE_COOLDOWN_MS = 3_500L;
     private static final long GROUND_SLAM_COOLDOWN_MS = 10_000L;
+    private static final long SPEAR_LUNGE_COOLDOWN_MS = 4_000L;
     private static final double GRAPPLE_RANGE = 24.0;
     private static final double BONUS_HIT_DAMAGE = 20.0;
 
@@ -66,6 +67,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private final Map<UUID, Integer> axeHitCounts = new HashMap<>();
     private final Set<UUID> groundSlamming = new HashSet<>();
     private final Map<UUID, Long> groundSlamReadyAt = new HashMap<>();
+    private final Map<UUID, Long> spearLungeReadyAt = new HashMap<>();
     private final Map<UUID, DomeSession> activeDomes = new HashMap<>();
     private final Map<UUID, Integer> hitCounts = new HashMap<>();
     private final Map<UUID, Long> dashReadyAt = new HashMap<>();
@@ -85,6 +87,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             return;
         }
         getCommand("weapon").setExecutor(this);
+        getCommand("weapon").setTabCompleter(this);
         getCommand("stuck").setExecutor(this);
         getServer().getPluginManager().registerEvents(this, this);
         // Detect players standing on command blocks while holding a mace named "Calamity".
@@ -110,6 +113,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         axeHitCounts.clear();
         groundSlamming.clear();
         groundSlamReadyAt.clear();
+        spearLungeReadyAt.clear();
         for (BukkitTask task : ritualTasks.values()) task.cancel();
         ritualTasks.clear();
         ritualBlocks.clear();
@@ -686,11 +690,28 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
     @EventHandler
     public void onAdditionalWeaponHit(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Player player) || !(event.getEntity() instanceof LivingEntity victim)) return;
-        ItemStack held = player.getInventory().getItemInMainHand();
-        if (!held.hasItemMeta()) return;
-        String type = held.getItemMeta().getPersistentDataContainer().get(weaponTypeKey, PersistentDataType.STRING);
-        if (type == null || abilityDamageInProgress.contains(player.getUniqueId())) return;
+        if (!(event.getEntity() instanceof LivingEntity victim)) return;
+
+        Player player = null;
+        String type = null;
+        if (event.getDamager() instanceof Player attacker) {
+            player = attacker;
+            ItemStack held = attacker.getInventory().getItemInMainHand();
+            if (held.hasItemMeta()) {
+                type = held.getItemMeta().getPersistentDataContainer()
+                        .get(weaponTypeKey, PersistentDataType.STRING);
+            }
+        } else if (event.getDamager() instanceof org.bukkit.entity.Trident thrown
+                && thrown.getShooter() instanceof Player shooter) {
+            ItemStack thrownItem = thrown.getItemStack();
+            if (thrownItem.hasItemMeta()) {
+                type = thrownItem.getItemMeta().getPersistentDataContainer()
+                        .get(weaponTypeKey, PersistentDataType.STRING);
+                player = shooter;
+            }
+        }
+        if (player == null || type == null
+                || abilityDamageInProgress.contains(player.getUniqueId())) return;
         if (event.isCancelled() && !type.equals("bloodreaver_axe")) return;
         switch (type) {
             case "judgment_spear" -> {
@@ -699,12 +720,18 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.0f, 1.1f);
             }
             case "storm_trident" -> {
+                // One immediate lightning hit plus four rapid follow-ups. The ability
+                // damage guard prevents these bonus hits from recursively retriggering.
                 for (int i = 0; i < 5; i++) {
                     final int delay = i * 2;
                     Bukkit.getScheduler().runTaskLater(this, () -> {
-                        if (victim.isValid() && !victim.isDead() && player.isOnline()) {
-                            victim.getWorld().strikeLightningEffect(victim.getLocation());
+                        if (victim.isValid() && !victim.isDead() && player.isOnline()
+                                && player.getWorld().equals(victim.getWorld())) {
+                            Location strikeAt = victim.getLocation();
+                            victim.getWorld().strikeLightningEffect(strikeAt);
                             damageFromAbility(player, victim, 3.0);
+                            victim.getWorld().playSound(strikeAt,
+                                    Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.65f, 1.35f);
                         }
                     }, delay);
                 }
