@@ -52,6 +52,21 @@ Use the command variants below as an operator (or with the weapon permission). A
 | `/weapon axe` | Bloodreaver | `/weapon axe normal` gives Berserker |
 | `/weapon slimeball` | Eclipse Core | — |
 
+### Weapon awakening rituals
+
+All rituals activate while standing on a regular, chain, or repeating command block and holding the matching renamed base item in the main hand. Each ritual takes 30 seconds. Keep holding the item and remain on the same command block; moving away, switching items, dying, or disconnecting interrupts the ritual. Completion replaces the held item with its custom weapon.
+
+| Hold this item | Ritual result |
+|---|---|
+| Mace named **Calamity** | Corrupted Calamity |
+| Crossbow named **Infernal** | Infernal Requiem |
+| Netherite Spear named **Judgment** | Heaven's Judgment |
+| Trident named **Storm** | Poseidon's Wrath |
+| Netherite Axe named **Berserker** | Bloodreaver |
+| Slimeball named **Eclipse** | Eclipse Core |
+
+Use `/weapon crossbow normal`, `/weapon spear normal`, `/weapon trident normal`, `/weapon axe normal`, or `/weapon slimeball normal` to receive the ritual starting item. The Calamity starting mace is a mace renamed **Calamity** in an anvil.
+
 ### Infernal Requiem
 - Crossbow with Multishot V and Quick Charge X.
 - The crossbow has no custom active ability. Arrows fired from it ignite automatically; Multishot V and Quick Charge X remain.
@@ -59,7 +74,7 @@ Use the command variants below as an operator (or with the weapon permission). A
 ### Heaven's Judgment
 - Uses the actual Minecraft spear item (not a trident) with a large attack-speed modifier and high-level combat enchantments. Uses the Netherite Spear material introduced in Minecraft 1.21.11.
 - Every hit calls a lightning visual and deals 5 hearts of bonus damage.
-- Right-click lunges forward in the direction you're aiming, with a 4-second cooldown.
+- Includes the vanilla Lunge III spear enchantment. Sprint + right-click to launch forward; normal right-click is left uncancelled so the enchantment can activate.
 - Sneak + right-click launches the wielder upward, then drives them into the ground. The impact damages and knocks back nearby entities; the wielder's fall damage is suppressed. Has a 10-second cooldown.
 
 ### Poseidon's Wrath
