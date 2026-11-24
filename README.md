@@ -42,7 +42,7 @@ Damage values are Minecraft damage points (2 points equal one full heart before 
 
 ## Additional weapons and Eclipse Core
 
-Use the command variants below as an operator (or with the weapon permission). Add `normal` after a weapon type to receive a plain renamed version with no special abilities.
+Use the command variants below as an operator (or with the weapon permission). Add `normal` after a weapon type to receive a plain renamed version with no special abilities. Tab-complete `/weapon` to see valid weapon names, then tab-complete `normal` where supported.
 
 | Command | Custom item | Normal renamed version |
 |---|---|---|
@@ -63,7 +63,7 @@ Use the command variants below as an operator (or with the weapon permission). A
 
 ### Poseidon's Wrath
 - Trident with Riptide V and the mace enchantments at their maximum levels (Density V, Breach IV, Wind Burst III).
-- Hits trigger five follow-up lightning strikes, each dealing bonus damage.
+- Melee hits and thrown-trident hits both trigger five rapid lightning effects, each dealing 3 damage points (1.5 hearts) as bonus damage.
 - No custom right-click ability; the trident retains its normal vanilla Riptide behavior.
 
 ### Bloodreaver
