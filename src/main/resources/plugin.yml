@@ -5,8 +5,8 @@ api-version: '1.21.11'
 description: Custom weapons and abilities, including Corrupted Calamity.
 commands:
   weapon:
-    description: Gives you the Corrupted Calamity mace.
-    usage: /weapon
+    description: Gives you a custom weapon or Eclipse Core.
+    usage: /weapon [calamity|crossbow|spear|trident|axe|slimeball] [normal]
     permission: universalweapons.weapon
   stuck:
     description: Restores gravity and clears movement if an ability leaves you stuck.
