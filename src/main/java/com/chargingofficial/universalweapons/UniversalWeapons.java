@@ -287,6 +287,11 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     world.spawnParticle(Particle.EXPLOSION, center, 2);
                     world.spawnParticle(primary, center, 180, 1.2, 1.5, 1.2, 0.12);
                     world.spawnParticle(secondary, center, 140, 1.0, 1.3, 1.0, 0.10);
+                    // Final lightning strike is visual-only so it cannot damage nearby players.
+                    world.strikeLightningEffect(center);
+                    world.spawnParticle(Particle.FLASH, center, 5, 0.35, 0.45, 0.35, 0.0);
+                    world.spawnParticle(Particle.ELECTRIC_SPARK, center, 90, 0.8, 1.0, 0.8, 0.18);
+                    world.playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.1f, 1.0f);
                     world.playSound(center, Sound.ENTITY_PLAYER_LEVELUP, 1.2f, 0.7f);
                     player.sendTitle(ChatColor.GOLD + "" + ChatColor.BOLD + displayName + " AWAKENED",
                             ChatColor.YELLOW + "The weapon answers your call", 10, 50, 20);
@@ -400,6 +405,11 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         world.spawnParticle(Particle.ELECTRIC_SPARK, burst, 350, 1.5, 1.6, 1.5, 0.18);
                         world.spawnParticle(Particle.END_ROD, burst, 250, 1.2, 1.6, 1.2, 0.18);
                         world.spawnParticle(Particle.SONIC_BOOM, burst, 3);
+                        // Final visual-only lightning strike for the Calamity ritual.
+                        world.strikeLightningEffect(burst);
+                        world.spawnParticle(Particle.FLASH, burst, 8, 0.3, 0.45, 0.3, 0.0);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, burst, 120, 1.0, 1.2, 1.0, 0.2);
+                        world.playSound(burst, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.2f, 0.85f);
                         world.playSound(burst, Sound.BLOCK_BEACON_POWER_SELECT, 1.2f, 0.55f);
                         world.playSound(burst, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.25f);
                     } catch (RuntimeException effectError) {
@@ -644,7 +654,15 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private ItemStack createNamedWeapon(Material material, String name, String type, boolean normal) {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + name);
+        ChatColor nameColor = switch (type) {
+            case "infernal_crossbow" -> ChatColor.RED;
+            case "judgment_spear" -> ChatColor.AQUA;
+            case "storm_trident" -> ChatColor.BLUE;
+            case "bloodreaver_axe" -> ChatColor.DARK_RED;
+            case "eclipse_core" -> ChatColor.BLACK;
+            default -> ChatColor.LIGHT_PURPLE;
+        };
+        meta.setDisplayName(nameColor.toString() + ChatColor.BOLD + name);
         if (!normal) {
             meta.setLore(switch (type) {
                 case "infernal_crossbow" -> List.of(ChatColor.GRAY + "A crossbow tempered in the Nether.",
