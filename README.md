@@ -1,6 +1,6 @@
 # Universal Weapons
 
-Universal Weapons is a custom-weapon plugin for **Paper 1.21.11**. It adds **Corrupted Calamity**, a custom mace with movement, combat, and impact abilities.
+Universal Weapons is a custom-weapon plugin for **Paper 1.21.11**. It adds Corrupted Calamity, four additional custom weapons, and the Eclipse Core trapping item.
 
 ## Requirements
 
@@ -18,7 +18,7 @@ Use `/weapon` to receive the mace. It requires the `universalweapons.weapon` per
 
 ### Calamity awakening ritual
 
-Stand on a command block (regular, chain, or repeating) while holding a mace named **Calamity** in your main hand. The ritual channels for 3 seconds with rotating purple particles and sound effects. Stay on the command block and keep holding the mace until the ritual completes; moving away or switching items interrupts it. Completion transforms the mace into **Corrupted Calamity**.
+Stand on a command block (regular, chain, or repeating) while holding a mace named **Calamity** in your main hand. The ritual channels for 30 seconds with rotating purple particles and sound effects. Stay on the command block and keep holding the mace until the ritual completes; moving away or switching items interrupts it. Completion transforms the mace into **Corrupted Calamity**.
 
 ### Built-in enchantments
 
@@ -39,6 +39,41 @@ Stand on a command block (regular, chain, or repeating) while holding a mace nam
 
 
 Damage values are Minecraft damage points (2 points equal one full heart before armor and other mitigation).
+
+## Additional weapons and Eclipse Core
+
+Use the command variants below as an operator (or with the weapon permission). Add `normal` after a weapon type to receive a plain renamed version with no special abilities.
+
+| Command | Custom item | Normal renamed version |
+|---|---|---|
+| `/weapon crossbow` | Infernal Requiem | `/weapon crossbow normal` gives Infernal |
+| `/weapon spear` | Heaven's Judgment | `/weapon spear normal` gives Judgment |
+| `/weapon trident` | Poseidon's Wrath | `/weapon trident normal` gives Storm |
+| `/weapon axe` | Bloodreaver | `/weapon axe normal` gives Berserker |
+| `/weapon slimeball` | Eclipse Core | — |
+
+### Infernal Requiem
+- Crossbow with Multishot X and Quick Charge III.
+- Right-click launches a spread volley of 18 flaming, strong-harming tipped arrows with Piercing IV.
+
+### Heaven's Judgment
+- Spear with a large attack-speed modifier and high-level combat enchantments.
+- Every hit calls a lightning visual and deals 5 hearts of bonus damage.
+- Sneak + right-click launches the wielder upward, then drives them into the ground. The impact damages and knocks back nearby entities; the wielder's fall damage is suppressed.
+
+### Poseidon's Wrath
+- Trident with Riptide X and the mace enchantments at their maximum levels (Density V, Breach IV, Wind Burst III).
+- Hits trigger five follow-up lightning strikes, each dealing bonus damage.
+- Sneak + right-click surrounds the wielder with a temporary water-particle cube. It does not place or destroy world blocks.
+
+### Bloodreaver
+- Netherite axe with high-level combat and utility enchantments.
+- Every third hit grants Speed III and Strength III for 15 seconds.
+- Hitting a player who is actively blocking destroys the shield.
+
+### Eclipse Core
+- Right-click while holding the slimeball to target the nearest other player within 24 blocks.
+- A black particle dome encloses both players for 12 seconds. Movement and teleport attempts outside the dome are blocked while it is active; no world blocks are changed.
 
 ## Install
 
@@ -78,7 +113,7 @@ Corrupted Calamity uses the normal Minecraft mace appearance. No custom resource
 
 | Permission | Default | Description |
 |---|---|---|
-| `universalweapons.weapon` | Operators | Allows use of `/weapon`. |
+| `universalweapons.weapon` | Operators | Allows use of `/weapon` and its item variants. |
 
 ## Project layout
 
