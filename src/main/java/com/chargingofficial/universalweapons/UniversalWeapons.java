@@ -43,6 +43,8 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -58,7 +60,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private static final long DASH_COOLDOWN_MS = 1_800L;
     private static final long GRAPPLE_COOLDOWN_MS = 3_500L;
     private static final long GROUND_SLAM_COOLDOWN_MS = 10_000L;
-    private static final long SPEAR_LUNGE_COOLDOWN_MS = 4_000L;
     private static final double GRAPPLE_RANGE = 24.0;
     private static final double BONUS_HIT_DAMAGE = 20.0;
 
@@ -67,7 +68,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private final Map<UUID, Integer> axeHitCounts = new HashMap<>();
     private final Set<UUID> groundSlamming = new HashSet<>();
     private final Map<UUID, Long> groundSlamReadyAt = new HashMap<>();
-    private final Map<UUID, Long> spearLungeReadyAt = new HashMap<>();
     private final Map<UUID, DomeSession> activeDomes = new HashMap<>();
     private final Map<UUID, Integer> hitCounts = new HashMap<>();
     private final Map<UUID, Long> dashReadyAt = new HashMap<>();
@@ -90,6 +90,16 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         getCommand("weapon").setTabCompleter(this);
         getCommand("stuck").setExecutor(this);
         getServer().getPluginManager().registerEvents(this, this);
+        // Keep Saturation refreshed while the custom Heaven's Judgment spear is held.
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (isHeavensJudgment(online.getInventory().getItemInMainHand())
+                        || isHeavensJudgment(online.getInventory().getItemInOffHand())) {
+                    online.addPotionEffect(new PotionEffect(
+                            PotionEffectType.SATURATION, 30, 0, true, false, false));
+                }
+            }
+        }, 1L, 10L);
         // Detect every weapon ritual while a player stands on a command block.
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             for (Player online : Bukkit.getOnlinePlayers()) {
@@ -114,7 +124,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         axeHitCounts.clear();
         groundSlamming.clear();
         groundSlamReadyAt.clear();
-        spearLungeReadyAt.clear();
         for (BukkitTask task : ritualTasks.values()) task.cancel();
         ritualTasks.clear();
         ritualBlocks.clear();
@@ -597,26 +606,10 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         return List.of();
     }
 
-    private void spearLunge(Player player) {
-        UUID id = player.getUniqueId();
-        long now = System.currentTimeMillis();
-        long readyAt = spearLungeReadyAt.getOrDefault(id, 0L);
-        if (readyAt > now) {
-            player.sendActionBar(ChatColor.GOLD + "Spear Lunge recharging: "
-                    + String.format(java.util.Locale.US, "%.1fs", (readyAt - now) / 1000.0));
-            return;
-        }
-        spearLungeReadyAt.put(id, now + SPEAR_LUNGE_COOLDOWN_MS);
-        Vector velocity = player.getEyeLocation().getDirection().normalize().multiply(2.15);
-        velocity.setY(Math.max(0.25, velocity.getY() + 0.18));
-        player.setVelocity(velocity);
-        player.setFallDistance(0);
-        Location origin = player.getLocation().add(0, 1.0, 0);
-        World world = player.getWorld();
-        world.playSound(origin, Sound.ITEM_TRIDENT_RIPTIDE_1, 1.0f, 1.25f);
-        world.spawnParticle(Particle.SWEEP_ATTACK, origin, 8, 0.35, 0.25, 0.35, 0.08);
-        world.spawnParticle(Particle.ELECTRIC_SPARK, origin, 24, 0.35, 0.35, 0.35, 0.12);
-        player.sendActionBar(ChatColor.GOLD + "HEAVEN'S LUNGE!");
+    private boolean isHeavensJudgment(ItemStack item) {
+        if (item == null || item.getType().isAir() || !item.hasItemMeta()) return false;
+        return "judgment_spear".equals(item.getItemMeta().getPersistentDataContainer()
+                .get(weaponTypeKey, PersistentDataType.STRING));
     }
 
     @EventHandler
@@ -657,6 +650,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 case "infernal_crossbow" -> List.of(ChatColor.GRAY + "A crossbow tempered in the Nether.",
                         ChatColor.GOLD + "Arrows fired from this crossbow ignite.");
                 case "judgment_spear" -> List.of(ChatColor.GRAY + "A weapon of storm and impact.",
+                        ChatColor.AQUA + "Passive: " + ChatColor.WHITE + "Infinite Saturation while held",
                         ChatColor.GOLD + "Hit: " + ChatColor.WHITE + "Lightning judgment (5 hearts)",
                         ChatColor.GOLD + "Right-click: " + ChatColor.WHITE + "Heaven's Lunge",
                         ChatColor.GOLD + "Sneak + right-click: " + ChatColor.WHITE + "Skyfall Ground Slam");
@@ -680,7 +674,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     addEnchant(meta, "looting", 3); addEnchant(meta, "knockback", 2);
                     addEnchant(meta, "unbreaking", 3); addEnchant(meta, "mending", 1);
                     addEnchant(meta, "sweeping_edge", 3);
-                    addEnchant(meta, "lunge", 3);
                     try {
                         meta.addAttributeModifier(Attribute.ATTACK_SPEED, new AttributeModifier(
                                 new NamespacedKey(this, "judgment_infinite_attack_speed"),
