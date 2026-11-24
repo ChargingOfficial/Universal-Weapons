@@ -994,7 +994,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         UUID playerId = event.getPlayer().getUniqueId();
         groundSlamming.remove(playerId);
         groundSlamReadyAt.remove(playerId);
-        activeWaterCubes.remove(playerId);
         BukkitTask ritual = ritualTasks.remove(playerId);
         if (ritual != null) ritual.cancel();
         ritualBlocks.remove(playerId);
