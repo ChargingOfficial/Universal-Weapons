@@ -59,6 +59,7 @@ Use the command variants below as an operator (or with the weapon permission). A
 ### Heaven's Judgment
 - Uses the actual Minecraft spear item (not a trident) with a large attack-speed modifier and high-level combat enchantments. Uses the Netherite Spear material introduced in Minecraft 1.21.11.
 - Every hit calls a lightning visual and deals 5 hearts of bonus damage.
+- Right-click lunges forward in the direction you're aiming, with a 4-second cooldown.
 - Sneak + right-click launches the wielder upward, then drives them into the ground. The impact damages and knocks back nearby entities; the wielder's fall damage is suppressed. Has a 10-second cooldown.
 
 ### Poseidon's Wrath
