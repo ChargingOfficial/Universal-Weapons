@@ -566,7 +566,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     int tier = progress / 10;
                     double radius = 1.0 + tier * 0.52;
                     for (int i = 0; i < 32; i++) {
-                        double direction = Math.PI * 2.0 * i / 32.0 + angle;
+                        double direction = Math.PI * 2.0 * i / 32.0 + elapsedTicks * 0.024;
                         double distance = radius * (0.72 + (i % 5) * 0.07);
                         Location shard = at.clone().add(Math.cos(direction) * distance,
                                 -0.75 + (i % 8) * 0.38,
