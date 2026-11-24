@@ -250,43 +250,90 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 Particle primary = switch (type) {
                     case "infernal_crossbow" -> Particle.FLAME;
                     case "judgment_spear" -> Particle.ELECTRIC_SPARK;
-                    case "storm_trident" -> Particle.DRIPPING_WATER;
+                    case "storm_trident" -> Particle.BUBBLE;
                     case "bloodreaver_axe" -> Particle.CRIMSON_SPORE;
-                    case "eclipse_core" -> Particle.SQUID_INK;
+                    case "eclipse_core" -> Particle.PORTAL;
                     default -> Particle.END_ROD;
                 };
                 Particle secondary = switch (type) {
                     case "infernal_crossbow" -> Particle.SOUL_FIRE_FLAME;
                     case "judgment_spear" -> Particle.END_ROD;
-                    case "storm_trident" -> Particle.ELECTRIC_SPARK;
+                    case "storm_trident" -> Particle.DRIPPING_WATER;
                     case "bloodreaver_axe" -> Particle.ASH;
-                    case "eclipse_core" -> Particle.PORTAL;
+                    case "eclipse_core" -> Particle.REVERSE_PORTAL;
                     default -> Particle.CRIT;
                 };
-                double radius = 2.0 + progress / 65.0;
-                for (int i = 0; i < 24; i++) {
-                    double angle = elapsedTicks * 0.12 + Math.PI * 2.0 * i / 24.0;
-                    Location point = center.clone().add(Math.cos(angle) * radius,
-                            0.15 + (i % 7) * 0.48, Math.sin(angle) * radius);
-                    world.spawnParticle(primary, point, 3, 0.08, 0.08, 0.08, 0.025);
-                    world.spawnParticle(secondary, point, 2, 0.04, 0.05, 0.04, 0.015);
-                }
-
-                // Add layered ground runes, a rising energy column, and a rotating crown.
-                for (int i = 0; i < 48; i++) {
-                    double runeAngle = Math.PI * 2.0 * i / 48.0 - elapsedTicks * 0.035;
-                    Location rune = center.clone().add(Math.cos(runeAngle) * (3.0 + progress * 0.012),
-                            -0.82, Math.sin(runeAngle) * (2.0 + progress * 0.006));
-                    world.spawnParticle(Particle.END_ROD, rune, 1, 0.025, 0.015, 0.025, 0.005);
-                    if (i % 3 == 0) world.spawnParticle(primary, rune, 2, 0.035, 0.02, 0.035, 0.01);
-                }
-                world.spawnParticle(secondary, center.clone().add(0, 0.9, 0),
-                        16, 0.65, 1.0, 0.65, 0.045);
-                world.spawnParticle(Particle.ENCHANT, center.clone().add(0, 1.6, 0),
-                        24, 1.0, 0.75, 1.0, 0.8);
-                if (elapsedTicks % 10 == 0) {
-                    world.spawnParticle(Particle.FLASH, center.clone().add(0, 2.0, 0),
-                            1, 0.18, 0.12, 0.18, 0.0);
+                // Distinct choreography for every weapon: fire spiral, lightning lance,
+                // ocean vortex, bloodstorm shockwaves, or imploding void.
+                switch (type) {
+                    case "infernal_crossbow" -> {
+                        for (int i=0;i<36;i++) {
+                            double a=elapsedTicks*0.16+Math.PI*2*i/36.0, y=0.15+(i%12)*0.22;
+                            double radius=1.0+(i%4)*0.42+progress*0.008;
+                            Location p=center.clone().add(Math.cos(a)*radius,y,Math.sin(a)*radius);
+                            world.spawnParticle(Particle.FLAME,p,4,0.12,0.18,0.12,0.025);
+                            world.spawnParticle(Particle.SOUL_FIRE_FLAME,p,2,0.08,0.12,0.08,0.015);
+                        }
+                        world.spawnParticle(Particle.LAVA,center.clone().add(0,-0.65,0),5,1.1,0.08,1.1,0);
+                        world.spawnParticle(Particle.SMOKE,center,28,0.8,1.0,0.8,0.035);
+                        if(elapsedTicks%12==0) world.spawnParticle(Particle.FLASH,center.clone().add(0,1.8,0),1);
+                    }
+                    case "judgment_spear" -> {
+                        for(int y=0;y<18;y++){
+                            double h=y*0.19, a=elapsedTicks*0.10+y*0.32, radius=0.18+y*0.025;
+                            Location p=center.clone().add(Math.cos(a)*radius,h-1.5,Math.sin(a)*radius);
+                            world.spawnParticle(Particle.ELECTRIC_SPARK,p,5,0.12,0.16,0.12,0.08);
+                            if(y%3==0) world.spawnParticle(Particle.END_ROD,p,3,0.04,0.12,0.04,0.02);
+                        }
+                        for(int i=0;i<12;i++){
+                            double a=Math.PI*2*i/12.0+elapsedTicks*0.08;
+                            Location p=center.clone().add(Math.cos(a)*2.8,0.1,Math.sin(a)*2.8);
+                            world.spawnParticle(Particle.ELECTRIC_SPARK,p,5,0.12,0.35,0.12,0.12);
+                        }
+                        if(elapsedTicks%8==0) world.spawnParticle(Particle.FLASH,center.clone().add(0,2,0),1);
+                    }
+                    case "storm_trident" -> {
+                        for(int i=0;i<32;i++){
+                            double a=elapsedTicks*0.09+Math.PI*2*i/32.0;
+                            double radius=2.8-(i%8)*0.19+Math.sin(elapsedTicks*0.08+i)*0.22;
+                            Location p=center.clone().add(Math.cos(a)*radius,-0.65+(i%8)*0.34,Math.sin(a)*radius);
+                            world.spawnParticle(Particle.BUBBLE,p,5,0.16,0.12,0.16,0.025);
+                            world.spawnParticle(Particle.DRIPPING_WATER,p,2,0.10,0.14,0.10,0.01);
+                        }
+                        world.spawnParticle(Particle.SPLASH,center.clone().add(0,-0.55,0),34,1.4,0.12,1.4,0.08);
+                        world.spawnParticle(Particle.DOLPHIN,center,12,0.9,1.0,0.9,0.05);
+                        if(elapsedTicks%40==0) world.spawnParticle(Particle.ELECTRIC_SPARK,center,55,1.3,1.4,1.3,0.16);
+                    }
+                    case "bloodreaver_axe" -> {
+                        for(int i=0;i<28;i++){
+                            double a=Math.PI*2*i/28.0, radius=0.8+((elapsedTicks/5+i)%9)*0.27;
+                            Location p=center.clone().add(Math.cos(a)*radius,1.5-((elapsedTicks/3+i*2)%18)*0.13,Math.sin(a)*radius);
+                            world.spawnParticle(Particle.CRIMSON_SPORE,p,5,0.12,0.18,0.12,0.01);
+                            world.spawnParticle(Particle.ASH,p,2,0.16,0.12,0.16,0.01);
+                        }
+                        if(elapsedTicks%12==0){
+                            double radius=1.0+(elapsedTicks%48)/48.0*2.8;
+                            for(int i=0;i<40;i++){
+                                double a=Math.PI*2*i/40.0;
+                                Location p=center.clone().add(Math.cos(a)*radius,-0.72,Math.sin(a)*radius);
+                                world.spawnParticle(Particle.CRIMSON_SPORE,p,3,0.08,0.04,0.08,0.01);
+                                world.spawnParticle(Particle.SMOKE,p,1,0.05,0.04,0.05,0.005);
+                            }
+                        }
+                        world.spawnParticle(Particle.ASH,center,36,1.3,1.2,1.3,0.02);
+                    }
+                    case "eclipse_core" -> {
+                        for(int i=0;i<40;i++){
+                            double a=Math.PI*2*i/40.0-elapsedTicks*0.07, radius=3.2-progress/100.0*1.4;
+                            Location p=center.clone().add(Math.cos(a)*radius,-0.8+(i%10)*0.32,Math.sin(a)*radius);
+                            world.spawnParticle(Particle.SQUID_INK,p,3,0.12,0.16,0.12,0.01);
+                            world.spawnParticle(Particle.PORTAL,p,5,0.18,0.20,0.18,0.18);
+                        }
+                        world.spawnParticle(Particle.REVERSE_PORTAL,center,55,1.6,1.8,1.6,0.12);
+                        world.spawnParticle(Particle.WITCH,center,20,0.8,1.2,0.8,0.02);
+                        if(elapsedTicks%30==0) world.spawnParticle(Particle.SONIC_BOOM,center.clone().add(0,0.4,0),1);
+                    }
+                    default -> world.spawnParticle(Particle.END_ROD,center,12,0.8,1.0,0.8,0.03);
                 }
 
                 // A visual-only lightning cadence builds anticipation without damage.
@@ -301,11 +348,26 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 if (elapsedTicks % 20 == 0) {
                     float pitch = 0.65f + progress / 180.0f;
                     world.playSound(center, Sound.BLOCK_BEACON_AMBIENT, 0.8f, pitch);
+                    switch(type) {
+                        case "infernal_crossbow" -> world.playSound(center, Sound.BLOCK_FIRE_AMBIENT, 0.9f, 0.75f+progress/250.0f);
+                        case "judgment_spear" -> world.playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, 0.8f, 1.4f);
+                        case "storm_trident" -> world.playSound(center, Sound.WEATHER_RAIN, 0.65f, 0.8f);
+                        case "bloodreaver_axe" -> world.playSound(center, Sound.ENTITY_RAVAGER_ROAR, 0.65f, 0.65f);
+                        case "eclipse_core" -> world.playSound(center, Sound.BLOCK_PORTAL_AMBIENT, 0.8f, 0.5f);
+                        default -> { }
+                    }
                 }
-                if (elapsedTicks % 60 == 0) {
-                    world.playSound(center, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.9f,
-                            0.65f + progress / 160.0f);
-                    world.playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.65f, 0.8f);
+                if (elapsedTicks % 40 == 0) {
+                    world.playSound(center, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.9f, 0.65f+progress/160.0f);
+                    world.playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.75f, 0.7f+progress/220.0f);
+                    switch(type) {
+                        case "infernal_crossbow" -> world.playSound(center, Sound.ITEM_FIRECHARGE_USE, 0.9f, 0.8f);
+                        case "judgment_spear" -> world.playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.7f, 1.3f);
+                        case "storm_trident" -> world.playSound(center, Sound.ENTITY_DOLPHIN_SPLASH, 0.8f, 0.9f);
+                        case "bloodreaver_axe" -> world.playSound(center, Sound.ENTITY_ZOGLIN_ANGRY, 0.7f, 0.8f);
+                        case "eclipse_core" -> world.playSound(center, Sound.ENTITY_ENDERMAN_STARE, 0.8f, 0.6f);
+                        default -> { }
+                    }
                 }
 
                 if (elapsedTicks >= DURATION_TICKS) {
@@ -382,6 +444,27 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         player.sendMessage(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD
                 + "The command block begins to resonate...");
         player.sendActionBar(Component.text("CALAMITY AWAKENING 0%"));
+        Location opening = player.getLocation().add(0,1.0,0);
+        world.playSound(opening, Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.65f);
+        world.playSound(opening, Sound.BLOCK_END_PORTAL_SPAWN, 0.9f, 0.55f);
+        world.playSound(opening, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 0.55f);
+        // Opening detonation and three expanding corrupted rune rings.
+        world.spawnParticle(Particle.EXPLOSION,opening,3);
+        world.spawnParticle(Particle.FLASH,opening,18,1.2,1.4,1.2,0.0);
+        world.spawnParticle(Particle.DRAGON_BREATH,opening,260,2.8,2.2,2.8,0.14);
+        world.spawnParticle(Particle.REVERSE_PORTAL,opening,320,3.2,2.4,3.2,0.22);
+        world.spawnParticle(Particle.SOUL_FIRE_FLAME,opening,180,2.0,1.6,2.0,0.10);
+        world.spawnParticle(Particle.ELECTRIC_SPARK,opening,220,2.4,2.0,2.4,0.18);
+        world.spawnParticle(Particle.SONIC_BOOM,opening,2);
+        for(int ring=0;ring<3;ring++){
+            double radius=1.4+ring*1.15;
+            for(int point=0;point<48;point++){
+                double angle=Math.PI*2.0*point/48.0;
+                Location spark=opening.clone().add(Math.cos(angle)*radius,-0.75+ring*0.75,Math.sin(angle)*radius);
+                world.spawnParticle(Particle.PORTAL,spark,4,0.08,0.08,0.08,0.12);
+                world.spawnParticle(Particle.SOUL_FIRE_FLAME,spark,2,0.04,0.08,0.04,0.01);
+            }
+        }
         world.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.2f, 0.5f);
         world.playSound(player.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 0.8f, 0.65f);
         world.playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.9f, 0.7f);
