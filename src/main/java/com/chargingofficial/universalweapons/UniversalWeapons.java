@@ -382,6 +382,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         player.sendMessage(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD
                 + "The command block begins to resonate...");
         player.sendActionBar(Component.text("CALAMITY AWAKENING 0%"));
+        world.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.2f, 0.5f);
+        world.playSound(player.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 0.8f, 0.65f);
+        world.playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.9f, 0.7f);
 
         BukkitRunnable ritual = new BukkitRunnable() {
             private int elapsedTicks = 0;
@@ -469,7 +472,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         world.playSound(burst, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.65f);
                         world.playSound(burst, Sound.BLOCK_BEACON_POWER_SELECT, 1.3f, 0.5f);
                         world.playSound(burst, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 1.0f, 0.8f);
-                        world.playSound(burst, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.8f, 1.25f);
+                        world.playSound(burst, Sound.ENTITY_WARDEN_SONIC_BOOM, 0.9f, 1.15f);
+                        world.playSound(burst, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.7f);
+                        world.playSound(burst, Sound.ENTITY_WITHER_DEATH, 0.8f, 0.8f);
                     } catch (RuntimeException effectError) {
                         getLogger().warning("Calamity awakening finale effect failed: " + effectError.getMessage());
                     }
@@ -491,9 +496,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     double a = angle + (Math.PI * 2.0 * i / 32.0);
                     double x = Math.cos(a);
                     double z = Math.sin(a);
-                    Location groundRing = at.clone().add(x * 3.5 * build, 0.10, z * 3.5 * build);
-                    Location waistRing = at.clone().add(x * 2.4 * build, 1.05, z * 2.4 * build);
-                    Location crownRing = at.clone().add(x * 3.0 * build, 2.15, z * 3.0 * build);
+                    Location groundRing = at.clone().add(x * 4.8 * build, 0.10, z * 4.8 * build);
+                    Location waistRing = at.clone().add(x * 3.4 * build, 1.05, z * 3.4 * build);
+                    Location crownRing = at.clone().add(x * 4.2 * build, 2.15, z * 4.2 * build);
                     world.spawnParticle(Particle.PORTAL, groundRing, 5, 0.08, 0.05, 0.08, 0.12);
                     world.spawnParticle(Particle.SOUL_FIRE_FLAME, groundRing, 2, 0.04, 0.08, 0.04, 0.015);
                     world.spawnParticle(Particle.DRAGON_BREATH, waistRing, 5, 0.07, 0.08, 0.07, 0.035);
@@ -505,28 +510,28 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 for (int i = 0; i < 5; i++) {
                     double spiral = angle * 1.35 + (Math.PI * 2.0 * i / 5.0);
                     double height = (elapsedTicks * 0.095 + i * 0.50) % 3.2;
-                    double radius = 1.4 + Math.sin(height * 1.3) * 0.7;
+                    double radius = 2.0 + Math.sin(height * 1.3) * 0.9;
                     Location vortex = at.clone().add(Math.cos(spiral) * radius,
                             0.10 + height, Math.sin(spiral) * radius);
-                    world.spawnParticle(Particle.DRAGON_BREATH, vortex, 9, 0.13, 0.16, 0.13, 0.04);
-                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, vortex, 4, 0.07, 0.12, 0.07, 0.025);
-                    world.spawnParticle(Particle.PORTAL, vortex, 10, 0.15, 0.16, 0.15, 0.16);
-                    world.spawnParticle(Particle.ELECTRIC_SPARK, vortex, 2, 0.06, 0.09, 0.06, 0.03);
+                    world.spawnParticle(Particle.DRAGON_BREATH, vortex, 12, 0.28, 0.22, 0.28, 0.05);
+                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, vortex, 6, 0.16, 0.18, 0.16, 0.035);
+                    world.spawnParticle(Particle.PORTAL, vortex, 14, 0.28, 0.22, 0.28, 0.18);
+                    world.spawnParticle(Particle.ELECTRIC_SPARK, vortex, 3, 0.14, 0.16, 0.14, 0.04);
                 }
 
                 // A pulsing column and dense aura fill the space around the player.
                 world.spawnParticle(Particle.DRAGON_BREATH, at.clone().add(0, 1.15, 0),
-                        36, 1.25, 1.4, 1.25, 0.065);
+                        42, 1.8, 1.7, 1.8, 0.075);
                 world.spawnParticle(Particle.PORTAL, at.clone().add(0, 1.1, 0),
-                        48, 1.45, 1.3, 1.45, 0.20);
+                        56, 2.0, 1.8, 2.0, 0.22);
                 world.spawnParticle(Particle.WITCH, at.clone().add(0, 1.0, 0),
-                        32, 1.2, 1.15, 1.2, 0.07);
+                        38, 1.7, 1.6, 1.7, 0.08);
                 world.spawnParticle(Particle.SOUL_FIRE_FLAME, at.clone().add(0, 0.9, 0),
-                        24, 1.0, 1.0, 1.0, 0.05);
+                        30, 1.5, 1.4, 1.5, 0.06);
 
                 // The ground circle expands in pulses beneath the ritualist.
                 if (elapsedTicks % 8 == 0) {
-                    double pulseRadius = 1.0 + (elapsedTicks % 32) / 32.0 * 2.2;
+                    double pulseRadius = 1.5 + (elapsedTicks % 32) / 32.0 * 3.2;
                     for (int i = 0; i < 48; i++) {
                         double p = Math.PI * 2.0 * i / 48.0;
                         Location pulse = at.clone().add(Math.cos(p) * pulseRadius,
@@ -552,6 +557,11 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     world.playSound(at, Sound.BLOCK_AMETHYST_BLOCK_CHIME,
                             0.65f, 0.55f + elapsedTicks / 1000.0f);
                 }
+                if (elapsedTicks % 100 == 0) {
+                    world.playSound(at, Sound.ENTITY_WITHER_AMBIENT, 0.8f, 0.55f + progress / 200.0f);
+                    world.playSound(at, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.9f, 0.65f + progress / 180.0f);
+                    world.playSound(at.clone().add(4.0, 0.5, 0), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.8f, 0.7f);
+                }
 
                 // The aura becomes increasingly violent in the final third.
                 if (elapsedTicks >= 400) {
@@ -560,8 +570,8 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         double a = angle * 1.8 + Math.PI * 2.0 * i / 8.0;
                         double y = 0.25 + ((elapsedTicks * 0.13 + i * 0.37) % 3.0);
                         Location surgePoint = at.clone().add(
-                                Math.cos(a) * (1.1 + surge * 0.25), y,
-                                Math.sin(a) * (1.1 + surge * 0.25));
+                                Math.cos(a) * (2.0 + surge * 0.35), y,
+                                Math.sin(a) * (2.0 + surge * 0.35));
                         world.spawnParticle(Particle.REVERSE_PORTAL, surgePoint,
                                 7, 0.12, 0.16, 0.12, 0.12);
                         world.spawnParticle(Particle.SOUL_FIRE_FLAME, surgePoint,
@@ -570,7 +580,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                                 3, 0.08, 0.10, 0.08, 0.05);
                     }
                     world.spawnParticle(Particle.DRAGON_BREATH, at.clone().add(0, 1.0, 0),
-                            18 + (elapsedTicks - 80), 0.8, 1.0, 0.8, 0.06);
+                            18 + (elapsedTicks - 80), 1.6, 1.5, 1.6, 0.08);
                 }
 
                 // Periodic visual-only lightning strikes around the Calamity ritual.
@@ -578,11 +588,12 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         && elapsedTicks % 80 == 0) {
                     double boltAngle = elapsedTicks * 0.11;
                     Location bolt = at.clone().add(Math.cos(boltAngle) * 4.0, 0,
-                            Math.sin(boltAngle) * 2.6);
+                            Math.sin(boltAngle) * 4.0);
                     world.strikeLightningEffect(bolt);
                     world.spawnParticle(Particle.ELECTRIC_SPARK, bolt, 75,
                             0.65, 1.1, 0.65, 0.2);
-                    world.playSound(at, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.9f, 0.8f);
+                    world.playSound(at, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 1.2f, 0.65f);
+                    world.playSound(bolt, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 0.9f, 0.9f);
                 }
 
                 // Final two seconds: frequent surges, stronger sound, and a bright pulse.
