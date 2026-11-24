@@ -575,7 +575,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 Location impact = player.getLocation();
                 World world = player.getWorld();
                 world.spawnParticle(Particle.EXPLOSION, impact, 2);
-                world.spawnParticle(Particle.BLOCK, impact, 90, 2.2, 0.35, 2.2, Material.DEEPSLATE.createBlockData());
+                world.spawnParticle(Particle.BLOCK, impact, 90, 2.2, 0.35, 2.2, 0.0, Material.DEEPSLATE.createBlockData());
                 world.spawnParticle(Particle.CLOUD, impact, 65, 1.8, 0.4, 1.8, 0.16);
                 world.playSound(impact, Sound.ENTITY_GENERIC_EXPLODE, 1.5f, 0.7f);
                 for (Entity entity : world.getNearbyEntities(impact, 5, 3, 5)) {
@@ -637,7 +637,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 for (int i = 0; i < 48; i++) {
                     double theta = Math.PI * 2 * i / 48.0;
                     Location p = center.clone().add(Math.cos(theta) * ring, height + radius, Math.sin(theta) * ring);
-                    world.spawnParticle(Particle.DUST, p, 2, 0.025, 0.025, 0.025,
+                    world.spawnParticle(Particle.DUST, p, 2, 0.025, 0.025, 0.025, 0.0,
                             new Particle.DustOptions(Color.fromRGB(5, 5, 8), 2.0f));
                     if (i % 3 == 0) world.spawnParticle(Particle.SMOKE, p, 1, 0.04, 0.04, 0.04, 0.005);
                 }
@@ -682,7 +682,8 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         ItemStack held = player.getInventory().getItemInMainHand();
         if (!held.hasItemMeta()) return;
         String type = held.getItemMeta().getPersistentDataContainer().get(weaponTypeKey, PersistentDataType.STRING);
-        if (type == null || event.isCancelled()) return;
+        if (type == null || abilityDamageInProgress.contains(player.getUniqueId())) return;
+        if (event.isCancelled() && !type.equals("bloodreaver_axe")) return;
         switch (type) {
             case "judgment_spear" -> {
                 victim.getWorld().strikeLightningEffect(victim.getLocation());
