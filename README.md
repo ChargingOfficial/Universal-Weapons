@@ -152,3 +152,15 @@ README.md
 - `/stuck` is available to all players and force-restores gravity and clears residual velocity.
 - Grapple launches the player toward the targeted player and displays its particle tether only once when activated. It steers toward the target until the player reaches or passes them, then ends the steering task while preserving current momentum. It never attacks automatically; the player must perform any melee hit themselves.
 - Test on a backup or staging server before deploying to a live server.
+
+
+### Distinct ritual effects and audio
+Each awakening has its own particle choreography rather than sharing a single ritual pattern with recolored particles:
+- **Calamity:** a large opening detonation, expanding corrupted rune rings, void energy, and layered Wither/End Portal/dragon audio.
+- **Infernal Requiem:** rising flame spirals, ember and smoke bursts, fire ambience, and fire-charge cues.
+- **Heaven's Judgment:** a vertical lightning-lance column, rotating electric arcs, and thunder/beacon cues.
+- **Poseidon's Wrath:** a rotating water vortex, bubbles, splashes, and rain/dolphin audio.
+- **Bloodreaver:** falling crimson spores, ash, expanding ground shockwaves, and Ravager/Zoglin sounds.
+- **Eclipse Core:** inward-pulling portal rings, squid ink, reverse-portal distortions, and Enderman/portal audio.
+
+Weapon-specific sound cues play throughout the 30-second channel, with additional shared chimes and respawn-anchor charging sounds. Ritual lightning and finale effects remain visual-only.
