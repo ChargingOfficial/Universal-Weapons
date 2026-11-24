@@ -5,10 +5,8 @@ import org.bukkit.Color;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.inventory.EquipmentSlotGroup;
-import org.bukkit.entity.Arrow;
-import org.bukkit.entity.TippedArrow;
-import org.bukkit.potion.PotionType;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
@@ -27,6 +25,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -416,8 +415,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             case "calamity" -> weapon = createCalamity();
             case "crossbow", "infernal" -> weapon = createNamedWeapon(Material.CROSSBOW,
                     normal ? "Infernal" : "Infernal Requiem", "infernal_crossbow", normal);
-            case "spear", "judgment" -> weapon = createNamedWeapon(
-                    Material.matchMaterial("SPEAR") == null ? Material.TRIDENT : Material.matchMaterial("SPEAR"),
+            case "spear", "judgment" -> weapon = createNamedWeapon(Material.SPEAR,
                     normal ? "Judgment" : "Heaven's Judgment", "judgment_spear", normal);
             case "trident", "storm" -> weapon = createNamedWeapon(Material.TRIDENT,
                     normal ? "Storm" : "Poseidon's Wrath", "storm_trident", normal);
@@ -452,7 +450,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         if (type == null) return;
         switch (type) {
             case "eclipse_core" -> { event.setCancelled(true); activateEclipseCore(player); }
-            case "infernal_crossbow" -> { event.setCancelled(true); fireHarmingBarrage(player); }
             case "judgment_spear" -> {
                 if (player.isSneaking()) { event.setCancelled(true); groundSlam(player); }
             }
@@ -468,8 +465,8 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         meta.setDisplayName(ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + name);
         if (!normal) {
             meta.setLore(switch (type) {
-                case "infernal_crossbow" -> List.of(ChatColor.GRAY + "A volley forged in the Nether.",
-                        ChatColor.GOLD + "Right-click: " + ChatColor.WHITE + "Piercing Harming Arrow Barrage");
+                case "infernal_crossbow" -> List.of(ChatColor.GRAY + "A crossbow tempered in the Nether.",
+                        ChatColor.GOLD + "Arrows fired from this crossbow ignite.");
                 case "judgment_spear" -> List.of(ChatColor.GRAY + "A weapon of storm and impact.",
                         ChatColor.GOLD + "Hit: " + ChatColor.WHITE + "Lightning judgment (5 hearts)",
                         ChatColor.GOLD + "Sneak + right-click: " + ChatColor.WHITE + "Skyfall Ground Slam");
@@ -536,26 +533,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         return item;
     }
 
-    private void fireHarmingBarrage(Player player) {
-        Location origin = player.getEyeLocation();
-        Vector forward = origin.getDirection().normalize();
-        Vector right = new Vector(-forward.getZ(), 0, forward.getX()).normalize();
-        World world = player.getWorld();
-        world.playSound(origin, Sound.ITEM_CROSSBOW_SHOOT, 1.2f, 0.65f);
-        for (int i = 0; i < 18; i++) {
-            double side = (i % 6 - 2.5) * 0.075;
-            double vertical = (i / 6 - 1) * 0.10;
-            Vector direction = forward.clone().add(right.clone().multiply(side)).add(new Vector(0, vertical, 0)).normalize();
-            TippedArrow arrow = world.spawn(origin.clone().add(direction.clone().multiply(0.8)), TippedArrow.class);
-            arrow.setShooter(player);
-            arrow.setVelocity(direction.multiply(2.8));
-            arrow.setBasePotionType(PotionType.STRONG_HARMING);
-            arrow.setPierceLevel(4);
-            arrow.setFireTicks(100);
-            arrow.setPickupStatus(org.bukkit.entity.AbstractArrow.PickupStatus.DISALLOWED);
-        }
-        world.spawnParticle(Particle.FLAME, origin, 45, 0.35, 0.3, 0.35, 0.08);
-    }
 
     private void groundSlam(Player player) {
         UUID id = player.getUniqueId();
@@ -673,6 +650,19 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         if (!event.getTo().getWorld().equals(dome.center.getWorld())) { event.setTo(event.getFrom()); return; }
         if (event.getTo().distanceSquared(dome.center) > dome.radius * dome.radius) {
             event.setTo(event.getFrom());
+        }
+    }
+
+    @EventHandler
+    public void igniteInfernalCrossbowProjectiles(ProjectileLaunchEvent event) {
+        Projectile projectile = event.getEntity();
+        if (!(projectile.getShooter() instanceof Player shooter)) return;
+        ItemStack held = shooter.getInventory().getItemInMainHand();
+        if (!held.hasItemMeta()) return;
+        String type = held.getItemMeta().getPersistentDataContainer()
+                .get(weaponTypeKey, PersistentDataType.STRING);
+        if ("infernal_crossbow".equals(type) && projectile instanceof org.bukkit.entity.AbstractArrow arrow) {
+            arrow.setFireTicks(20 * 8);
         }
     }
 
