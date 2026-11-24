@@ -6,6 +6,7 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 
 import org.bukkit.ChatColor;
@@ -415,7 +416,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             case "calamity" -> weapon = createCalamity();
             case "crossbow", "infernal" -> weapon = createNamedWeapon(Material.CROSSBOW,
                     normal ? "Infernal" : "Infernal Requiem", "infernal_crossbow", normal);
-            case "spear", "judgment" -> weapon = createNamedWeapon(Material.SPEAR,
+            case "spear", "judgment" -> weapon = createNamedWeapon(resolveSpearMaterial(),
                     normal ? "Judgment" : "Heaven's Judgment", "judgment_spear", normal);
             case "trident", "storm" -> weapon = createNamedWeapon(Material.TRIDENT,
                     normal ? "Storm" : "Poseidon's Wrath", "storm_trident", normal);
@@ -481,7 +482,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             switch (type) {
                 case "infernal_crossbow" -> {
                     addEnchant(meta, "multishot", 10);
-                    addEnchant(meta, "quick_charge", 3);
+                    addEnchant(meta, "quick_charge", 10);
                     addEnchant(meta, "unbreaking", 3);
                     addEnchant(meta, "mending", 1);
                 }
@@ -654,14 +655,41 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     }
 
     @EventHandler
+    public void keepPlayersInsideEclipseOnTeleport(PlayerTeleportEvent event) {
+        DomeSession dome = activeDomes.get(event.getPlayer().getUniqueId());
+        if (dome == null || event.getTo() == null) return;
+        if (!event.getTo().getWorld().equals(dome.center.getWorld())
+                || event.getTo().distanceSquared(dome.center) > dome.radius * dome.radius) {
+            event.setCancelled(true);
+            event.getPlayer().sendActionBar(ChatColor.DARK_PURPLE + "The Eclipse dome prevents escape!");
+        }
+    }
+
+    private Material resolveSpearMaterial() {
+        // Some Paper API builds for 1.21.11 do not expose the new spear constant.
+        // Resolve by key at runtime so servers that provide it get the real spear;
+        // otherwise keep the command usable with a trident fallback.
+        Material spear = Material.matchMaterial("SPEAR");
+        if (spear != null) return spear;
+        getLogger().warning("This server API does not expose the SPEAR item; /weapon spear will use a trident fallback.");
+        return Material.TRIDENT;
+    }
+
+    private boolean isInfernalCrossbow(ItemStack item) {
+        if (item == null || item.getType() != Material.CROSSBOW || !item.hasItemMeta()) return false;
+        return "infernal_crossbow".equals(item.getItemMeta().getPersistentDataContainer()
+                .get(weaponTypeKey, PersistentDataType.STRING));
+    }
+
+    @EventHandler
     public void igniteInfernalCrossbowProjectiles(ProjectileLaunchEvent event) {
         Projectile projectile = event.getEntity();
-        if (!(projectile.getShooter() instanceof Player shooter)) return;
-        ItemStack held = shooter.getInventory().getItemInMainHand();
-        if (!held.hasItemMeta()) return;
-        String type = held.getItemMeta().getPersistentDataContainer()
-                .get(weaponTypeKey, PersistentDataType.STRING);
-        if ("infernal_crossbow".equals(type) && projectile instanceof org.bukkit.entity.AbstractArrow arrow) {
+        if (!(projectile.getShooter() instanceof Player shooter)
+                || !(projectile instanceof org.bukkit.entity.AbstractArrow arrow)) return;
+        // Crossbows can be fired from either hand. Checking both avoids silently
+        // losing the passive when the weapon is equipped in the off hand.
+        if (isInfernalCrossbow(shooter.getInventory().getItemInMainHand())
+                || isInfernalCrossbow(shooter.getInventory().getItemInOffHand())) {
             arrow.setFireTicks(20 * 8);
         }
     }
