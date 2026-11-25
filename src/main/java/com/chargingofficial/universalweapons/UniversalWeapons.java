@@ -577,27 +577,13 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     return;
                 }
 
-                // Validate only the item type after activation. Re-parsing a renamed
-                // ItemStack every tick can reject valid legacy/component display names
-                // and restart the ritual indefinitely.
+                // Once the ritual begins, don't repeatedly test the supporting block.
+                // Player collision coordinates can fluctuate at the block boundary and
+                // cancel the task even when the player appears to be standing still.
+                // Keep the task alive while the player remains online, in this world,
+                // and holds a mace; initial activation already verified the Calamity name.
                 ItemStack currentHeld = player.getInventory().getItemInMainHand();
                 if (currentHeld.getType() != Material.MACE) {
-                    interrupt();
-                    return;
-                }
-
-                // Use the player's feet position relative to the original block rather
-                // than re-detecting the supporting block each tick. Tiny vertical
-                // collision offsets can otherwise make a stationary player appear to
-                // have stepped off the command block and reset the ritual.
-                Location originalBlock = ritualBlocks.get(id);
-                Location playerFeet = player.getLocation();
-                if (originalBlock == null
-                        || !playerFeet.getWorld().equals(originalBlock.getWorld())
-                        || playerFeet.getBlockX() != originalBlock.getBlockX()
-                        || playerFeet.getBlockZ() != originalBlock.getBlockZ()
-                        || playerFeet.getY() < originalBlock.getY() + 0.80
-                        || playerFeet.getY() > originalBlock.getY() + 1.65) {
                     interrupt();
                     return;
                 }
