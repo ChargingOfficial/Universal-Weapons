@@ -103,7 +103,8 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         // Detect every weapon ritual while a player stands on a command block.
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             for (Player online : Bukkit.getOnlinePlayers()) {
-                if (ritualTasks.containsKey(online.getUniqueId())) continue;
+                if (ritualTasks.containsKey(online.getUniqueId())
+                        || ritualBlocks.containsKey(online.getUniqueId())) continue;
                 String ritualType = getRitualType(online);
                 if ("calamity".equals(ritualType)) beginCalamityRitual(online);
                 else if (ritualType != null) beginWeaponRitual(online, ritualType);
@@ -531,7 +532,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     private void beginCalamityRitual(Player player) {
         UUID id = player.getUniqueId();
         Location ritualBlock = getRitualBlock(player);
-        if (ritualBlock == null || ritualTasks.containsKey(id)) return;
+        if (ritualBlock == null || ritualTasks.containsKey(id) || ritualBlocks.containsKey(id)) return;
 
         // Keep the exact block and world that started the ritual. The player must
         // remain on this block and keep the original Calamity mace in their hand.
@@ -540,30 +541,38 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         player.sendMessage(ChatColor.DARK_PURPLE + "" + ChatColor.BOLD
                 + "The command block begins to resonate...");
         player.sendActionBar(Component.text("CALAMITY AWAKENING 0%"));
-        Location opening = player.getLocation().add(0,1.0,0);
-        world.playSound(opening, Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.65f);
-        world.playSound(opening, Sound.BLOCK_END_PORTAL_SPAWN, 0.9f, 0.55f);
-        world.playSound(opening, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 0.55f);
-        // Opening detonation and three expanding corrupted rune rings.
-        world.spawnParticle(Particle.EXPLOSION,opening,3);
-        world.spawnParticle(Particle.FLASH,opening,18,1.2,1.4,1.2,0.0);
-        world.spawnParticle(Particle.DRAGON_BREATH,opening,260,2.8,2.2,2.8,0.14);
-        world.spawnParticle(Particle.REVERSE_PORTAL,opening,320,3.2,2.4,3.2,0.22);
-        world.spawnParticle(Particle.SOUL_FIRE_FLAME,opening,180,2.0,1.6,2.0,0.10);
-        world.spawnParticle(Particle.ELECTRIC_SPARK,opening,220,2.4,2.0,2.4,0.18);
-        world.spawnParticle(Particle.SONIC_BOOM,opening,2);
-        for(int ring=0;ring<3;ring++){
-            double radius=1.4+ring*1.15;
-            for(int point=0;point<48;point++){
-                double angle=Math.PI*2.0*point/48.0;
-                Location spark=opening.clone().add(Math.cos(angle)*radius,-0.75+ring*0.75,Math.sin(angle)*radius);
-                world.spawnParticle(Particle.PORTAL,spark,4,0.08,0.08,0.08,0.12);
-                world.spawnParticle(Particle.SOUL_FIRE_FLAME,spark,2,0.04,0.08,0.04,0.01);
+        Location opening = player.getLocation().add(0, 1.0, 0);
+        // Cosmetic startup effects must never prevent the 30-second task from being
+        // registered. A particle/sound runtime exception here previously allowed the
+        // detector to attempt the ritual again on its next scan.
+        try {
+            world.playSound(opening, Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.65f);
+            world.playSound(opening, Sound.BLOCK_END_PORTAL_SPAWN, 0.9f, 0.55f);
+            world.playSound(opening, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 0.55f);
+            world.spawnParticle(Particle.EXPLOSION, opening, 3);
+            world.spawnParticle(Particle.FLASH, opening, 18, 1.2, 1.4, 1.2, 0.0);
+            world.spawnParticle(Particle.DRAGON_BREATH, opening, 260, 2.8, 2.2, 2.8, 0.14);
+            world.spawnParticle(Particle.REVERSE_PORTAL, opening, 320, 3.2, 2.4, 3.2, 0.22);
+            world.spawnParticle(Particle.SOUL_FIRE_FLAME, opening, 180, 2.0, 1.6, 2.0, 0.10);
+            world.spawnParticle(Particle.ELECTRIC_SPARK, opening, 220, 2.4, 2.0, 2.4, 0.18);
+            world.spawnParticle(Particle.SONIC_BOOM, opening, 2);
+            for (int ring = 0; ring < 3; ring++) {
+                double radius = 1.4 + ring * 1.15;
+                for (int point = 0; point < 48; point++) {
+                    double angle = Math.PI * 2.0 * point / 48.0;
+                    Location spark = opening.clone().add(Math.cos(angle) * radius,
+                            -0.75 + ring * 0.75, Math.sin(angle) * radius);
+                    world.spawnParticle(Particle.PORTAL, spark, 4, 0.08, 0.08, 0.08, 0.12);
+                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, spark, 2, 0.04, 0.08, 0.04, 0.01);
+                }
             }
+            world.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.2f, 0.5f);
+            world.playSound(player.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 0.8f, 0.65f);
+            world.playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.9f, 0.7f);
+        } catch (RuntimeException startupEffectError) {
+            getLogger().warning("Calamity ritual startup effect failed; continuing timer: "
+                    + startupEffectError.getMessage());
         }
-        world.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.2f, 0.5f);
-        world.playSound(player.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 0.8f, 0.65f);
-        world.playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 0.9f, 0.7f);
 
         BukkitRunnable ritual = new BukkitRunnable() {
             private int elapsedTicks = 0;
