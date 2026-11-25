@@ -641,25 +641,54 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 Location at = player.getLocation();
                 int progress = Math.min(100, elapsedTicks * 100 / RITUAL_DURATION_TICKS);
 
-                // Ten distinct corruption stages: each 10% expands the effect and raises the charge.
+                // Ten corruption stages: every 10% adds a larger, denser eruption of energy.
                 if (progress > 0 && progress % 10 == 0 && elapsedTicks % 6 == 0) {
                     int tier = progress / 10;
-                    double radius = 1.8 + tier * 0.78;
-                    for (int i = 0; i < 48; i++) {
-                        double direction = Math.PI * 2.0 * i / 48.0 + elapsedTicks * 0.024;
-                        double distance = radius * (0.72 + (i % 5) * 0.07);
+                    double radius = 2.2 + tier * 0.92;
+                    int points = 56 + tier * 8;
+                    for (int i = 0; i < points; i++) {
+                        double direction = Math.PI * 2.0 * i / points + elapsedTicks * 0.024;
+                        double distance = radius * (0.68 + (i % 7) * 0.055);
                         Location shard = at.clone().add(Math.cos(direction) * distance,
-                                -0.75 + (i % 8) * 0.38,
+                                -0.85 + (i % 10) * 0.38,
                                 Math.sin(direction) * distance);
-                        world.spawnParticle(Particle.DRAGON_BREATH, shard, 5 + tier * 4,
-                                0.10 + tier * 0.025, 0.12 + tier * 0.025,
-                                0.10 + tier * 0.025, 0.035 + tier * 0.006);
-                        world.spawnParticle(Particle.REVERSE_PORTAL, shard, 4 + tier * 2,
-                                0.08 + tier * 0.02, 0.10 + tier * 0.02,
-                                0.08 + tier * 0.02, 0.05 + tier * 0.008);
-                        if (tier >= 5) world.spawnParticle(Particle.ELECTRIC_SPARK, shard,
-                                2 + tier, 0.16, 0.18, 0.16, 0.10);
+                        world.spawnParticle(Particle.DRAGON_BREATH, shard, 8 + tier * 7,
+                                0.12 + tier * 0.018, 0.14 + tier * 0.018,
+                                0.12 + tier * 0.018, 0.035 + tier * 0.006);
+                        world.spawnParticle(Particle.REVERSE_PORTAL, shard, 7 + tier * 5,
+                                0.10 + tier * 0.016, 0.12 + tier * 0.016,
+                                0.10 + tier * 0.016, 0.05 + tier * 0.008);
+                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, shard, 3 + tier * 2,
+                                0.08 + tier * 0.012, 0.10 + tier * 0.012,
+                                0.08 + tier * 0.012, 0.025 + tier * 0.004);
+                        if (tier >= 3) {
+                            world.spawnParticle(Particle.ELECTRIC_SPARK, shard, 4 + tier * 3,
+                                    0.16, 0.18, 0.16, 0.10 + tier * 0.008);
+                        }
+                        if (tier >= 6 && i % 2 == 0) {
+                            world.spawnParticle(Particle.PORTAL, shard, 5 + tier * 3,
+                                    0.12, 0.16, 0.12, 0.18);
+                        }
                     }
+                    // Each new stage lays down an additional outer rune ring, so the arena visibly grows.
+                    for (int ring = 0; ring < tier; ring++) {
+                        double ringRadius = radius + ring * 0.72;
+                        int ringPoints = 32 + tier * 4;
+                        for (int point = 0; point < ringPoints; point++) {
+                            double a = Math.PI * 2.0 * point / ringPoints
+                                    + elapsedTicks * (ring % 2 == 0 ? 0.018 : -0.018);
+                            Location rune = at.clone().add(Math.cos(a) * ringRadius,
+                                    -0.78 + (point % 5) * 0.24, Math.sin(a) * ringRadius);
+                            world.spawnParticle(Particle.REVERSE_PORTAL, rune, 3 + tier * 2,
+                                    0.08, 0.10, 0.08, 0.12);
+                            world.spawnParticle(Particle.ELECTRIC_SPARK, rune, 2 + tier,
+                                    0.07, 0.10, 0.07, 0.08);
+                        }
+                    }
+                    world.spawnParticle(Particle.EXPLOSION, at.clone().add(0, 0.7, 0), 1 + tier / 3);
+                    world.spawnParticle(Particle.FLASH, at.clone().add(0, 1.0, 0),
+                            2 + tier, 0.45 + tier * 0.08, 0.7 + tier * 0.08,
+                            0.45 + tier * 0.08, 0.0);
                     float pitch = 0.55f + tier * 0.095f;
                     world.playSound(at, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE,
                             0.55f + tier * 0.04f, pitch);
