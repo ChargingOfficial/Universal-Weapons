@@ -556,6 +556,37 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             world.spawnParticle(Particle.SOUL_FIRE_FLAME, opening, 300, 2.6, 2.0, 2.6, 0.13);
             world.spawnParticle(Particle.ELECTRIC_SPARK, opening, 380, 3.0, 2.5, 3.0, 0.22);
             world.spawnParticle(Particle.SONIC_BOOM, opening, 2);
+
+            // Dense close-range particle shell bursts directly around the player.
+            // Three body-height rings keep the opening effect concentrated instead
+            // of relying only on the larger cloud spread several blocks outward.
+            double[] closeRadii = {0.85, 1.45, 2.05};
+            double[] closeHeights = {-0.65, 0.25, 1.15};
+            for (int layer = 0; layer < closeRadii.length; layer++) {
+                double radius = closeRadii[layer];
+                double y = closeHeights[layer];
+                for (int point = 0; point < 72; point++) {
+                    double angle = Math.PI * 2.0 * point / 72.0;
+                    Location closeBurst = opening.clone().add(
+                            Math.cos(angle) * radius, y, Math.sin(angle) * radius);
+                    world.spawnParticle(Particle.DRAGON_BREATH, closeBurst,
+                            4, 0.10, 0.16, 0.10, 0.035);
+                    world.spawnParticle(Particle.REVERSE_PORTAL, closeBurst,
+                            3, 0.08, 0.12, 0.08, 0.08);
+                    if (point % 2 == 0) {
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, closeBurst,
+                                2, 0.08, 0.14, 0.08, 0.06);
+                    }
+                }
+            }
+            // Add a tight vertical crown and foot-level flare around the player.
+            world.spawnParticle(Particle.SOUL_FIRE_FLAME,
+                    opening.clone().add(0, -0.55, 0), 110, 0.95, 0.12, 0.95, 0.08);
+            world.spawnParticle(Particle.PORTAL,
+                    opening.clone().add(0, 0.95, 0), 150, 1.05, 1.05, 1.05, 0.18);
+            world.spawnParticle(Particle.END_ROD,
+                    opening.clone().add(0, 2.0, 0), 90, 0.85, 0.28, 0.85, 0.08);
+
             for (int ring = 0; ring < 4; ring++) {
                 double radius = 1.4 + ring * 1.15;
                 for (int point = 0; point < 64; point++) {
