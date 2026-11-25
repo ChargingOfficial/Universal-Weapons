@@ -167,4 +167,4 @@ Weapon-specific sound cues play throughout the 30-second channel, with additiona
 
 
 ### Ritual progression and finales
-All six 30-second rituals now build through ten distinct 10% stages. Each stage increases particle count and spread, adds a stronger weapon-specific burst, and raises the pitch and intensity of charge-up sounds from the opening through 100%. At completion, particles disperse outward in many directions and each weapon has its own awakening sound. Calamity uses its own separate corruption-stage effects and a larger outward void burst.
+All six 30-second rituals now build through ten distinct 10% stages. Each stage increases particle count and spread, adds a stronger weapon-specific burst, and raises the pitch and intensity of charge-up sounds from the opening through 100%. At completion, particles disperse outward in many directions and each weapon has its own awakening sound. Calamity uses its own separate corruption-stage effects: every 10% adds more Dragon Breath, Reverse Portal, Soul Fire Flame, and electric particles, increases the burst size, and adds another expanding outer rune ring before its larger outward void finale.
