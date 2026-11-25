@@ -90,7 +90,7 @@ Use `/weapon crossbow normal`, `/weapon spear normal`, `/weapon trident normal`,
 
 ### Eclipse Core
 - Right-click while holding the slimeball to target the nearest other player within 24 blocks.
-- A black particle dome encloses both players for 12 seconds. Movement and teleport attempts outside the dome are blocked while it is active; no world blocks are changed.
+- A dense, continuously refreshed black-and-violet particle dome encloses both players for 12 seconds. Its closely spaced particle rings cover the full upper hemisphere to minimize visible gaps. Movement and teleport attempts outside the dome are blocked while it is active; no world blocks are changed.
 
 ## Install
 
@@ -161,7 +161,7 @@ Each awakening has its own particle choreography rather than sharing a single ri
 - **Heaven's Judgment:** a vertical lightning-lance column, rotating electric arcs, and thunder/beacon cues.
 - **Poseidon's Wrath:** a rotating water vortex, bubbles, splashes, and rain/dolphin audio.
 - **Bloodreaver:** falling crimson spores, ash, expanding ground shockwaves, and Ravager/Zoglin sounds.
-- **Eclipse Core:** right-click builds a dome of temporary crying-obsidian blocks around the user and the nearest other non-spectator player within 24 blocks. The shell expands gradually in small batches at a medium pace instead of appearing all at once, then remains for 12 seconds total before the original air blocks are restored. Existing solid blocks are left untouched, and temporary blocks are restored if the plugin shuts down. The ability recognizes the tagged item and its exact `Eclipse Core` name; if no eligible player is nearby, it displays a clear message and visual feedback. Its ritual features inward-pulling portal rings, squid ink, reverse-portal distortions, and Enderman/portal audio. Its 30-second channel smoothly accelerates the world's sky through four complete day/night cycles.
+- **Eclipse Core:** right-click creates a dense, full upper-hemisphere particle dome around the user and the nearest other non-spectator player within 24 blocks. Closely spaced dark dust particles and layered reverse-portal motes continuously redraw the shell to keep it visually filled, with no world blocks placed or changed. The dome lasts 12 seconds. The ability recognizes the tagged item and its exact `Eclipse Core` name; if no eligible player is nearby, it displays a clear message and visual feedback. Its ritual features inward-pulling portal rings, squid ink, reverse-portal distortions, and Enderman/portal audio. Its 30-second channel smoothly accelerates the world's sky through four complete day/night cycles.
 
 Weapon-specific sound cues play throughout the 30-second channel, with additional shared chimes and respawn-anchor charging sounds. Ritual lightning and finale effects remain visual-only.
 
