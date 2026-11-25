@@ -739,61 +739,132 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
                 double angle = elapsedTicks * 0.024;
 
-                // Particle rendering is cosmetic; a particle/API issue must never
-                // terminate the timer or freeze the progress bar.
+                // Particle rendering is cosmetic; an effect issue must never stop the ritual timer.
                 try {
-                double build = Math.min(2.35, 0.85 + elapsedTicks / 380.0);
+                    double build = Math.min(3.15, 1.05 + elapsedTicks / 285.0);
+                    double rotation = angle * 1.7;
 
-                // Three dense rotating rings form a large, layered halo around the player.
-                for (int i = 0; i < 48; i++) {
-                    double a = angle + (Math.PI * 2.0 * i / 48.0);
-                    double x = Math.cos(a);
-                    double z = Math.sin(a);
-                    Location groundRing = at.clone().add(x * 6.2 * build, 0.10, z * 6.2 * build);
-                    Location waistRing = at.clone().add(x * 4.6 * build, 1.05, z * 4.6 * build);
-                    Location crownRing = at.clone().add(x * 5.6 * build, 2.15, z * 5.6 * build);
-                    world.spawnParticle(Particle.PORTAL, groundRing, 8, 0.10, 0.06, 0.10, 0.14);
-                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, groundRing, 4, 0.06, 0.10, 0.06, 0.02);
-                    world.spawnParticle(Particle.DRAGON_BREATH, waistRing, 8, 0.09, 0.10, 0.09, 0.05);
-                    world.spawnParticle(Particle.ELECTRIC_SPARK, crownRing, 4, 0.06, 0.08, 0.06, 0.03);
-                    world.spawnParticle(Particle.REVERSE_PORTAL, crownRing, 4, 0.08, 0.08, 0.08, 0.06);
-                }
-
-                // Five thick corkscrew streams rise from the command block and coil overhead.
-                for (int i = 0; i < 7; i++) {
-                    double spiral = angle * 1.35 + (Math.PI * 2.0 * i / 5.0);
-                    double height = (elapsedTicks * 0.095 + i * 0.50) % 3.2;
-                    double radius = 2.8 + Math.sin(height * 1.3) * 1.25;
-                    Location vortex = at.clone().add(Math.cos(spiral) * radius,
-                            0.10 + height, Math.sin(spiral) * radius);
-                    world.spawnParticle(Particle.DRAGON_BREATH, vortex, 18, 0.32, 0.26, 0.32, 0.06);
-                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, vortex, 10, 0.18, 0.20, 0.18, 0.045);
-                    world.spawnParticle(Particle.PORTAL, vortex, 22, 0.32, 0.26, 0.32, 0.20);
-                    world.spawnParticle(Particle.ELECTRIC_SPARK, vortex, 6, 0.16, 0.18, 0.16, 0.05);
-                }
-
-                // A pulsing column and dense aura fill the space around the player.
-                world.spawnParticle(Particle.DRAGON_BREATH, at.clone().add(0, 1.15, 0),
-                        60 + progress, 1.9 + progress / 100.0, 1.8 + progress / 100.0, 1.9 + progress / 100.0, 0.08);
-                world.spawnParticle(Particle.PORTAL, at.clone().add(0, 1.1, 0),
-                        80 + progress, 2.1 + progress / 100.0, 1.9 + progress / 100.0, 2.1 + progress / 100.0, 0.24);
-                world.spawnParticle(Particle.WITCH, at.clone().add(0, 1.0, 0),
-                        55 + progress / 2, 1.8 + progress / 100.0, 1.7 + progress / 100.0, 1.8 + progress / 100.0, 0.09);
-                world.spawnParticle(Particle.SOUL_FIRE_FLAME, at.clone().add(0, 0.9, 0),
-                        45 + progress / 2, 1.6 + progress / 100.0, 1.5 + progress / 100.0, 1.6 + progress / 100.0, 0.07);
-
-                // The ground circle expands in pulses beneath the ritualist.
-                if (elapsedTicks % 8 == 0) {
-                    double pulseRadius = 2.2 + (elapsedTicks % 32) / 32.0 * 4.6;
-                    for (int i = 0; i < 48; i++) {
-                        double p = Math.PI * 2.0 * i / 48.0;
-                        Location pulse = at.clone().add(Math.cos(p) * pulseRadius,
-                                0.08, Math.sin(p) * pulseRadius);
-                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, pulse, 2, 0.03, 0.02, 0.03, 0.01);
-                        world.spawnParticle(Particle.ELECTRIC_SPARK, pulse, 1, 0.02, 0.02, 0.02, 0.01);
+                    // Four orbiting rings surround the player at different heights.
+                    // Their radius, speed and particle density all intensify over time.
+                    for (int ring = 0; ring < 4; ring++) {
+                        double radius = (2.4 + ring * 1.45) * build;
+                        double height = -0.72 + ring * 0.92;
+                        double direction = rotation * (ring % 2 == 0 ? 1.0 : -1.0)
+                                + ring * Math.PI / 3.0;
+                        for (int point = 0; point < 56; point++) {
+                            double a = direction + Math.PI * 2.0 * point / 56.0;
+                            Location orbit = at.clone().add(Math.cos(a) * radius,
+                                    height + Math.sin(a * 2.0 + elapsedTicks * 0.045) * 0.22,
+                                    Math.sin(a) * radius);
+                            world.spawnParticle(Particle.PORTAL, orbit, 3 + progress / 25,
+                                    0.07, 0.08, 0.07, 0.13);
+                            world.spawnParticle(Particle.DRAGON_BREATH, orbit, 2 + progress / 35,
+                                    0.06, 0.08, 0.06, 0.035);
+                            if (point % 2 == 0) {
+                                world.spawnParticle(Particle.ELECTRIC_SPARK, orbit, 1 + progress / 50,
+                                        0.08, 0.12, 0.08, 0.08);
+                            }
+                        }
                     }
-                }
 
+                    // Twelve twisting energy pillars climb from the ground and spiral overhead.
+                    for (int stream = 0; stream < 12; stream++) {
+                        double spiral = rotation + Math.PI * 2.0 * stream / 12.0;
+                        double height = (elapsedTicks * (0.075 + progress * 0.0007)
+                                + stream * 0.31) % 5.2;
+                        double radius = (1.5 + Math.sin(height * 1.55 + stream) * 1.0)
+                                * (0.85 + progress * 0.006);
+                        Location vortex = at.clone().add(Math.cos(spiral) * radius,
+                                -0.75 + height, Math.sin(spiral) * radius);
+                        world.spawnParticle(Particle.DRAGON_BREATH, vortex, 9 + progress / 8,
+                                0.24, 0.30, 0.24, 0.055);
+                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, vortex, 5 + progress / 15,
+                                0.15, 0.22, 0.15, 0.035);
+                        world.spawnParticle(Particle.REVERSE_PORTAL, vortex, 8 + progress / 10,
+                                0.22, 0.28, 0.22, 0.16);
+                    }
+
+                    // The player's body is engulfed in a dense, constantly swelling corruption aura.
+                    Location core = at.clone().add(0, 1.0, 0);
+                    double auraSpread = 1.15 + progress * 0.025;
+                    world.spawnParticle(Particle.DRAGON_BREATH, core,
+                            150 + progress * 3, auraSpread, 1.55 + progress * 0.018,
+                            auraSpread, 0.09);
+                    world.spawnParticle(Particle.PORTAL, core,
+                            180 + progress * 3, auraSpread * 1.25, 1.8 + progress * 0.02,
+                            auraSpread * 1.25, 0.28);
+                    world.spawnParticle(Particle.REVERSE_PORTAL, core,
+                            120 + progress * 2, auraSpread, 1.6 + progress * 0.02,
+                            auraSpread, 0.22);
+                    world.spawnParticle(Particle.WITCH, core,
+                            90 + progress * 2, auraSpread, 1.5 + progress * 0.02,
+                            auraSpread, 0.08);
+                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, core,
+                            70 + progress * 2, auraSpread * 0.8, 1.25 + progress * 0.015,
+                            auraSpread * 0.8, 0.065);
+
+                    // A dark-purple-looking vertical energy column rises through the player.
+                    world.spawnParticle(Particle.DRAGON_BREATH,
+                            at.clone().add(0, 3.0, 0), 45 + progress, 0.55, 2.2, 0.55, 0.035);
+                    world.spawnParticle(Particle.END_ROD,
+                            at.clone().add(0, 2.2, 0), 24 + progress / 2, 0.65, 1.5, 0.65, 0.055);
+
+                    // Expanding ground runes pulse outward more often as power builds.
+                    if (elapsedTicks % 5 == 0) {
+                        double pulseRadius = (2.4 + (elapsedTicks % 40) / 40.0 * 7.0)
+                                * (0.9 + progress * 0.008);
+                        for (int point = 0; point < 72; point++) {
+                            double p = Math.PI * 2.0 * point / 72.0 + rotation;
+                            Location rune = at.clone().add(Math.cos(p) * pulseRadius,
+                                    0.08 + Math.sin(p * 3.0 + elapsedTicks * 0.04) * 0.12,
+                                    Math.sin(p) * pulseRadius);
+                            world.spawnParticle(Particle.SOUL_FIRE_FLAME, rune, 3 + progress / 35,
+                                    0.04, 0.04, 0.04, 0.025);
+                            world.spawnParticle(Particle.ELECTRIC_SPARK, rune, 2 + progress / 50,
+                                    0.06, 0.08, 0.06, 0.10);
+                            if (point % 3 == 0) {
+                                world.spawnParticle(Particle.REVERSE_PORTAL, rune, 4 + progress / 20,
+                                        0.08, 0.10, 0.08, 0.12);
+                            }
+                        }
+                    }
+
+                    // Every second, a vertical shockwave detonates around the entire ritual arena.
+                    if (elapsedTicks % 20 == 0) {
+                        double waveRadius = 3.0 + progress * 0.095;
+                        for (int point = 0; point < 64; point++) {
+                            double p = Math.PI * 2.0 * point / 64.0 + rotation;
+                            Location wave = at.clone().add(Math.cos(p) * waveRadius,
+                                    0.25 + (point % 8) * 0.42, Math.sin(p) * waveRadius);
+                            world.spawnParticle(Particle.DRAGON_BREATH, wave, 10 + progress / 5,
+                                    0.18, 0.28, 0.18, 0.07);
+                            world.spawnParticle(Particle.ELECTRIC_SPARK, wave, 4 + progress / 12,
+                                    0.14, 0.22, 0.14, 0.12);
+                        }
+                        world.playSound(at, Sound.BLOCK_BEACON_AMBIENT,
+                                0.65f + progress * 0.006f, 0.55f + progress * 0.008f);
+                    }
+
+                    // Mid-ritual and near-awakening surges create unmistakable power spikes.
+                    if (progress == 50 && elapsedTicks % 6 == 0) {
+                        world.spawnParticle(Particle.EXPLOSION, core, 5);
+                        world.spawnParticle(Particle.SONIC_BOOM, core, 2);
+                        world.spawnParticle(Particle.FLASH, core, 8, 1.2, 1.6, 1.2, 0.0);
+                        world.spawnParticle(Particle.REVERSE_PORTAL, core, 420, 2.8, 2.4, 2.8, 0.28);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, core, 320, 2.6, 2.2, 2.6, 0.20);
+                        world.playSound(at, Sound.ENTITY_WARDEN_SONIC_BOOM, 1.0f, 0.65f);
+                        world.playSound(at, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.1f, 0.75f);
+                    }
+                    if (progress == 90 && elapsedTicks % 6 == 0) {
+                        world.spawnParticle(Particle.EXPLOSION, core, 8);
+                        world.spawnParticle(Particle.FLASH, core, 14, 1.8, 2.0, 1.8, 0.0);
+                        world.spawnParticle(Particle.DRAGON_BREATH, core, 650, 3.8, 3.0, 3.8, 0.18);
+                        world.spawnParticle(Particle.PORTAL, core, 700, 4.0, 3.0, 4.0, 0.32);
+                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, core, 420, 3.0, 2.4, 3.0, 0.12);
+                        world.spawnParticle(Particle.SONIC_BOOM, core, 3);
+                        world.playSound(at, Sound.ENTITY_WITHER_AMBIENT, 1.2f, 0.5f);
+                        world.playSound(at, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 1.2f, 0.65f);
+                    }
                 } catch (RuntimeException effectError) {
                     if (elapsedTicks == 1) {
                         getLogger().warning("A Calamity ritual particle effect failed: "
