@@ -161,7 +161,7 @@ Each awakening has its own particle choreography rather than sharing a single ri
 - **Heaven's Judgment:** a vertical lightning-lance column, rotating electric arcs, and thunder/beacon cues.
 - **Poseidon's Wrath:** a rotating water vortex, bubbles, splashes, and rain/dolphin audio.
 - **Bloodreaver:** falling crimson spores, ash, expanding ground shockwaves, and Ravager/Zoglin sounds.
-- **Eclipse Core:** inward-pulling portal rings, squid ink, reverse-portal distortions, and Enderman/portal audio. Its 30-second channel smoothly accelerates the world's sky through four complete day/night cycles, repeatedly sweeping from day into night before the ritual completes.
+- **Eclipse Core:** right-click activates a black dome that traps the user and the nearest other non-spectator player within 24 blocks for 12 seconds. The ability recognizes the tagged item and its exact `Eclipse Core` name; if no eligible player is nearby, it displays a clear message and visual feedback. Its ritual features inward-pulling portal rings, squid ink, reverse-portal distortions, and Enderman/portal audio. Its 30-second channel smoothly accelerates the world's sky through four complete day/night cycles.
 
 Weapon-specific sound cues play throughout the 30-second channel, with additional shared chimes and respawn-anchor charging sounds. Ritual lightning and finale effects remain visual-only.
 
