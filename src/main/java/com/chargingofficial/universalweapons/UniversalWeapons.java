@@ -153,25 +153,28 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     }
 
     private Location getRitualBlock(Player player) {
-        // Player#getLocation() can floor to the command-block's Y when the
-        // player's feet are exactly on (or fractionally below) the block top.
-        // Sample just below the feet so the supporting block is found reliably.
-        Location supportPoint = player.getLocation().clone().subtract(0.0, 0.01, 0.0);
-        Block beneath = supportPoint.getBlock();
-        Material type = beneath.getType();
-        if (type != Material.COMMAND_BLOCK
-                && type != Material.CHAIN_COMMAND_BLOCK
-                && type != Material.REPEATING_COMMAND_BLOCK) {
-            return null;
+        // Player location is the feet position. Sample several points below it
+        // because collision resolution can leave the feet fractionally above
+        // the command block's top surface.
+        Location feet = player.getLocation();
+        double[] offsets = {0.02, 0.12, 0.28, 0.48};
+        for (double offset : offsets) {
+            Block beneath = feet.clone().subtract(0.0, offset, 0.0).getBlock();
+            Material type = beneath.getType();
+            if (type == Material.COMMAND_BLOCK
+                    || type == Material.CHAIN_COMMAND_BLOCK
+                    || type == Material.REPEATING_COMMAND_BLOCK) {
+                return beneath.getLocation();
+            }
         }
-        return beneath.getLocation();
+        return null;
     }
 
 
     private String getRitualType(Player player) {
         if (getRitualBlock(player) == null) return null;
         ItemStack held = player.getInventory().getItemInMainHand();
-        if (!held.hasItemMeta() || !held.getItemMeta().hasDisplayName()) return null;
+        if (!held.hasItemMeta()) return null;
         ItemMeta heldMeta = held.getItemMeta();
         String legacyName = heldMeta.hasDisplayName() ? heldMeta.getDisplayName() : "";
         String componentName = heldMeta.displayName() == null ? ""
@@ -512,7 +515,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
     private boolean isRitualReady(Player player) {
         if (!player.isOnline() || !player.isValid() || player.isDead()) return false;
-        if (getRitualBlock(player) == null) return false;
 
         ItemStack held = player.getInventory().getItemInMainHand();
         if (held.getType() != Material.MACE || !held.hasItemMeta()) return false;
