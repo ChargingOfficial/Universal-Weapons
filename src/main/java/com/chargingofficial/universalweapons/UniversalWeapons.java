@@ -549,21 +549,21 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             world.playSound(opening, Sound.ENTITY_WITHER_SPAWN, 1.0f, 0.65f);
             world.playSound(opening, Sound.BLOCK_END_PORTAL_SPAWN, 0.9f, 0.55f);
             world.playSound(opening, Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 0.55f);
-            world.spawnParticle(Particle.EXPLOSION, opening, 3);
-            world.spawnParticle(Particle.FLASH, opening, 18, 1.2, 1.4, 1.2, 0.0);
-            world.spawnParticle(Particle.DRAGON_BREATH, opening, 260, 2.8, 2.2, 2.8, 0.14);
-            world.spawnParticle(Particle.REVERSE_PORTAL, opening, 320, 3.2, 2.4, 3.2, 0.22);
-            world.spawnParticle(Particle.SOUL_FIRE_FLAME, opening, 180, 2.0, 1.6, 2.0, 0.10);
-            world.spawnParticle(Particle.ELECTRIC_SPARK, opening, 220, 2.4, 2.0, 2.4, 0.18);
+            world.spawnParticle(Particle.EXPLOSION, opening, 6);
+            world.spawnParticle(Particle.FLASH, opening, 30, 1.5, 1.7, 1.5, 0.0);
+            world.spawnParticle(Particle.DRAGON_BREATH, opening, 480, 3.6, 2.8, 3.6, 0.18);
+            world.spawnParticle(Particle.REVERSE_PORTAL, opening, 560, 4.0, 3.0, 4.0, 0.26);
+            world.spawnParticle(Particle.SOUL_FIRE_FLAME, opening, 300, 2.6, 2.0, 2.6, 0.13);
+            world.spawnParticle(Particle.ELECTRIC_SPARK, opening, 380, 3.0, 2.5, 3.0, 0.22);
             world.spawnParticle(Particle.SONIC_BOOM, opening, 2);
-            for (int ring = 0; ring < 3; ring++) {
+            for (int ring = 0; ring < 4; ring++) {
                 double radius = 1.4 + ring * 1.15;
-                for (int point = 0; point < 48; point++) {
-                    double angle = Math.PI * 2.0 * point / 48.0;
+                for (int point = 0; point < 64; point++) {
+                    double angle = Math.PI * 2.0 * point / 64.0;
                     Location spark = opening.clone().add(Math.cos(angle) * radius,
                             -0.75 + ring * 0.75, Math.sin(angle) * radius);
-                    world.spawnParticle(Particle.PORTAL, spark, 4, 0.08, 0.08, 0.08, 0.12);
-                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, spark, 2, 0.04, 0.08, 0.04, 0.01);
+                    world.spawnParticle(Particle.PORTAL, spark, 7, 0.10, 0.10, 0.10, 0.15);
+                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, spark, 4, 0.06, 0.10, 0.06, 0.02);
                 }
             }
             world.playSound(player.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 1.2f, 0.5f);
@@ -605,20 +605,20 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 if (progress > 0 && progress % 10 == 0 && elapsedTicks % 6 == 0) {
                     int tier = progress / 10;
                     double radius = 1.8 + tier * 0.78;
-                    for (int i = 0; i < 32; i++) {
-                        double direction = Math.PI * 2.0 * i / 32.0 + elapsedTicks * 0.024;
+                    for (int i = 0; i < 48; i++) {
+                        double direction = Math.PI * 2.0 * i / 48.0 + elapsedTicks * 0.024;
                         double distance = radius * (0.72 + (i % 5) * 0.07);
                         Location shard = at.clone().add(Math.cos(direction) * distance,
                                 -0.75 + (i % 8) * 0.38,
                                 Math.sin(direction) * distance);
-                        world.spawnParticle(Particle.DRAGON_BREATH, shard, 2 + tier * 2,
+                        world.spawnParticle(Particle.DRAGON_BREATH, shard, 5 + tier * 4,
                                 0.10 + tier * 0.025, 0.12 + tier * 0.025,
                                 0.10 + tier * 0.025, 0.035 + tier * 0.006);
-                        world.spawnParticle(Particle.REVERSE_PORTAL, shard, 2 + tier,
+                        world.spawnParticle(Particle.REVERSE_PORTAL, shard, 4 + tier * 2,
                                 0.08 + tier * 0.02, 0.10 + tier * 0.02,
                                 0.08 + tier * 0.02, 0.05 + tier * 0.008);
                         if (tier >= 5) world.spawnParticle(Particle.ELECTRIC_SPARK, shard,
-                                1 + tier / 2, 0.12, 0.14, 0.12, 0.08);
+                                2 + tier, 0.16, 0.18, 0.16, 0.10);
                     }
                     float pitch = 0.55f + tier * 0.095f;
                     world.playSound(at, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE,
@@ -714,42 +714,42 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 double build = Math.min(2.35, 0.85 + elapsedTicks / 380.0);
 
                 // Three dense rotating rings form a large, layered halo around the player.
-                for (int i = 0; i < 32; i++) {
-                    double a = angle + (Math.PI * 2.0 * i / 32.0);
+                for (int i = 0; i < 48; i++) {
+                    double a = angle + (Math.PI * 2.0 * i / 48.0);
                     double x = Math.cos(a);
                     double z = Math.sin(a);
                     Location groundRing = at.clone().add(x * 6.2 * build, 0.10, z * 6.2 * build);
                     Location waistRing = at.clone().add(x * 4.6 * build, 1.05, z * 4.6 * build);
                     Location crownRing = at.clone().add(x * 5.6 * build, 2.15, z * 5.6 * build);
-                    world.spawnParticle(Particle.PORTAL, groundRing, 5, 0.08, 0.05, 0.08, 0.12);
-                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, groundRing, 2, 0.04, 0.08, 0.04, 0.015);
-                    world.spawnParticle(Particle.DRAGON_BREATH, waistRing, 5, 0.07, 0.08, 0.07, 0.035);
-                    world.spawnParticle(Particle.ELECTRIC_SPARK, crownRing, 2, 0.04, 0.06, 0.04, 0.02);
-                    world.spawnParticle(Particle.REVERSE_PORTAL, crownRing, 2, 0.06, 0.06, 0.06, 0.04);
+                    world.spawnParticle(Particle.PORTAL, groundRing, 8, 0.10, 0.06, 0.10, 0.14);
+                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, groundRing, 4, 0.06, 0.10, 0.06, 0.02);
+                    world.spawnParticle(Particle.DRAGON_BREATH, waistRing, 8, 0.09, 0.10, 0.09, 0.05);
+                    world.spawnParticle(Particle.ELECTRIC_SPARK, crownRing, 4, 0.06, 0.08, 0.06, 0.03);
+                    world.spawnParticle(Particle.REVERSE_PORTAL, crownRing, 4, 0.08, 0.08, 0.08, 0.06);
                 }
 
                 // Five thick corkscrew streams rise from the command block and coil overhead.
-                for (int i = 0; i < 5; i++) {
+                for (int i = 0; i < 7; i++) {
                     double spiral = angle * 1.35 + (Math.PI * 2.0 * i / 5.0);
                     double height = (elapsedTicks * 0.095 + i * 0.50) % 3.2;
                     double radius = 2.8 + Math.sin(height * 1.3) * 1.25;
                     Location vortex = at.clone().add(Math.cos(spiral) * radius,
                             0.10 + height, Math.sin(spiral) * radius);
-                    world.spawnParticle(Particle.DRAGON_BREATH, vortex, 12, 0.28, 0.22, 0.28, 0.05);
-                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, vortex, 6, 0.16, 0.18, 0.16, 0.035);
-                    world.spawnParticle(Particle.PORTAL, vortex, 14, 0.28, 0.22, 0.28, 0.18);
-                    world.spawnParticle(Particle.ELECTRIC_SPARK, vortex, 3, 0.14, 0.16, 0.14, 0.04);
+                    world.spawnParticle(Particle.DRAGON_BREATH, vortex, 18, 0.32, 0.26, 0.32, 0.06);
+                    world.spawnParticle(Particle.SOUL_FIRE_FLAME, vortex, 10, 0.18, 0.20, 0.18, 0.045);
+                    world.spawnParticle(Particle.PORTAL, vortex, 22, 0.32, 0.26, 0.32, 0.20);
+                    world.spawnParticle(Particle.ELECTRIC_SPARK, vortex, 6, 0.16, 0.18, 0.16, 0.05);
                 }
 
                 // A pulsing column and dense aura fill the space around the player.
                 world.spawnParticle(Particle.DRAGON_BREATH, at.clone().add(0, 1.15, 0),
-                        42, 1.8, 1.7, 1.8, 0.075);
+                        60 + progress, 1.9 + progress / 100.0, 1.8 + progress / 100.0, 1.9 + progress / 100.0, 0.08);
                 world.spawnParticle(Particle.PORTAL, at.clone().add(0, 1.1, 0),
-                        56, 2.0, 1.8, 2.0, 0.22);
+                        80 + progress, 2.1 + progress / 100.0, 1.9 + progress / 100.0, 2.1 + progress / 100.0, 0.24);
                 world.spawnParticle(Particle.WITCH, at.clone().add(0, 1.0, 0),
-                        38, 1.7, 1.6, 1.7, 0.08);
+                        55 + progress / 2, 1.8 + progress / 100.0, 1.7 + progress / 100.0, 1.8 + progress / 100.0, 0.09);
                 world.spawnParticle(Particle.SOUL_FIRE_FLAME, at.clone().add(0, 0.9, 0),
-                        30, 1.5, 1.4, 1.5, 0.06);
+                        45 + progress / 2, 1.6 + progress / 100.0, 1.5 + progress / 100.0, 1.6 + progress / 100.0, 0.07);
 
                 // The ground circle expands in pulses beneath the ritualist.
                 if (elapsedTicks % 8 == 0) {
