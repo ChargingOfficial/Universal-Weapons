@@ -1438,11 +1438,12 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         int baseX = dome.center.getBlockX();
         int baseY = dome.center.getBlockY();
         int baseZ = dome.center.getBlockZ();
-        int maxY = (int) Math.ceil(dome.radius * 2.0);
+        // Build an upper hemisphere: wide at the ground around both players,
+        // narrowing smoothly to a crown above them.
+        int maxY = (int) Math.ceil(dome.radius);
         for (int y = 0; y <= maxY; y++) {
-            double verticalOffset = y - dome.radius;
             double ringRadius = Math.sqrt(Math.max(0,
-                    dome.radius * dome.radius - verticalOffset * verticalOffset));
+                    dome.radius * dome.radius - y * y));
             int points = Math.max(1, (int) Math.ceil(Math.PI * 2.0 * ringRadius * 1.15));
             for (int i = 0; i < points; i++) {
                 double angle = Math.PI * 2.0 * i / points;
