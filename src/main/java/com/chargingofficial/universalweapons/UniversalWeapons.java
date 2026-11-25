@@ -726,6 +726,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     Location burst = player.getLocation().add(0, 1, 0);
                     try {
                         world.spawnParticle(Particle.EXPLOSION, burst, 4);
+                        world.playSound(burst, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.65f);
                         world.spawnParticle(Particle.FLASH, burst, 8, 0.25, 0.25, 0.25, 0.0);
                         world.spawnParticle(Particle.DRAGON_BREATH, burst, 700, 3.0, 2.4, 3.0, 0.16);
                         world.spawnParticle(Particle.PORTAL, burst, 900, 3.2, 2.6, 3.2, 0.34);
@@ -856,30 +857,38 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                                 0.55f + auraTier * 0.04f, 0.65f + auraTier * 0.07f);
                     }
 
-                    // Four orbiting rings surround the player at different heights.
-                    // Their radius, speed and particle density all intensify over time.
+                    // Four highly visible orbiting rings surround the player at different heights.
+                    // More points and layered particles keep each spinning band clearly defined
+                    // from the opening seconds through the final awakening.
                     for (int ring = 0; ring < 4; ring++) {
                         double radius = (2.4 + ring * 1.45) * build;
                         double height = -0.72 + ring * 0.92;
                         double direction = rotation * (ring % 2 == 0 ? 1.0 : -1.0)
                                 + ring * Math.PI / 3.0;
-                        for (int point = 0; point < 56; point++) {
-                            double a = direction + Math.PI * 2.0 * point / 56.0;
+                        for (int point = 0; point < 88; point++) {
+                            double a = direction + Math.PI * 2.0 * point / 88.0;
                             Location orbit = at.clone().add(Math.cos(a) * radius,
                                     height + Math.sin(a * 2.0 + elapsedTicks * 0.045) * 0.22,
                                     Math.sin(a) * radius);
-                            world.spawnParticle(Particle.PORTAL, orbit, (int) ((3 + progress / 25) * stagePower),
-                                    0.07 + auraTier * 0.006, 0.08 + auraTier * 0.008,
-                                    0.07 + auraTier * 0.006, 0.13 + auraTier * 0.012);
+                            world.spawnParticle(Particle.PORTAL, orbit,
+                                    (int) ((6 + progress / 18) * stagePower),
+                                    0.09 + auraTier * 0.008, 0.10 + auraTier * 0.01,
+                                    0.09 + auraTier * 0.008, 0.18 + auraTier * 0.014);
                             world.spawnParticle(Particle.DRAGON_BREATH, orbit,
-                                    (int) ((2 + progress / 35) * stagePower),
-                                    0.06 + auraTier * 0.005, 0.08 + auraTier * 0.006,
-                                    0.06 + auraTier * 0.005, 0.035 + auraTier * 0.004);
+                                    (int) ((4 + progress / 24) * stagePower),
+                                    0.08 + auraTier * 0.006, 0.10 + auraTier * 0.008,
+                                    0.08 + auraTier * 0.006, 0.045 + auraTier * 0.005);
+                            world.spawnParticle(Particle.REVERSE_PORTAL, orbit,
+                                    (int) ((3 + progress / 30) * stagePower),
+                                    0.07 + auraTier * 0.006, 0.09 + auraTier * 0.008,
+                                    0.07 + auraTier * 0.006, 0.14 + auraTier * 0.01);
                             if (point % 2 == 0) {
                                 world.spawnParticle(Particle.ELECTRIC_SPARK, orbit,
-                                        (int) ((1 + progress / 50) * stagePower),
-                                        0.08 + auraTier * 0.006, 0.12 + auraTier * 0.008,
-                                        0.08 + auraTier * 0.006, 0.08 + auraTier * 0.006);
+                                        (int) ((2 + progress / 35) * stagePower),
+                                        0.09 + auraTier * 0.006, 0.13 + auraTier * 0.008,
+                                        0.09 + auraTier * 0.006, 0.10 + auraTier * 0.008);
+                                world.spawnParticle(Particle.SOUL_FIRE_FLAME, orbit,
+                                        2 + auraTier, 0.06, 0.08, 0.06, 0.025);
                             }
                         }
                     }
