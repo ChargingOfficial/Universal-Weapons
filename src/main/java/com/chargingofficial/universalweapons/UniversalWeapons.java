@@ -1416,7 +1416,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             }
             if (dome.nextBlock >= dome.shellBlocks.size()) {
                 // Once built, leave a faint void shimmer on the completed structure.
-                if (Bukkit.getCurrentTick() % 10 == 0) {
+                if (++dome.animationTicks % 10 == 0) {
                     for (int i = 0; i < 18; i++) {
                         double angle = Math.PI * 2.0 * i / 18.0 + Bukkit.getCurrentTick() * 0.012;
                         double y = 0.5 + (i % 6) * (radius * 2.0 / 6.0);
@@ -1480,6 +1480,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         private final List<Location> shellBlocks = new java.util.ArrayList<>();
         private final Map<Location, org.bukkit.block.data.BlockData> originalBlocks = new HashMap<>();
         private int nextBlock = 0;
+        private int animationTicks = 0;
         private BukkitTask task;
         private DomeSession(UUID first, UUID second, Location center, double radius) {
             this.first = first; this.second = second; this.center = center; this.radius = radius;
