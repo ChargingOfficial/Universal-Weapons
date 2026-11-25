@@ -1192,7 +1192,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 .get(weaponTypeKey, PersistentDataType.STRING));
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.HIGH)
     public void onInteract(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) return;
         Action action = event.getAction();
@@ -1200,6 +1200,15 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         ItemStack held = event.getItem();
         if (held == null || !held.hasItemMeta()) return;
         Player player = event.getPlayer();
+
+        // Check the Eclipse Core by its marker and its exact display name. This
+        // fallback keeps the ability usable if another plugin strips custom item data.
+        if (isEclipseCore(held)) {
+            event.setCancelled(true);
+            activateEclipseCore(player);
+            return;
+        }
+
         String type = held.getItemMeta().getPersistentDataContainer().get(weaponTypeKey, PersistentDataType.STRING);
         if (isCalamity(held)) {
             event.setCancelled(true);
@@ -1208,7 +1217,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         }
         if (type == null) return;
         switch (type) {
-            case "eclipse_core" -> { event.setCancelled(true); activateEclipseCore(player); }
             case "judgment_spear" -> {
                 if (player.isSneaking()) {
                     event.setCancelled(true);
@@ -1219,6 +1227,19 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
             }
             case "storm_trident" -> { /* No custom right-click ability; vanilla trident behavior remains. */ }
         }
+    }
+
+    private boolean isEclipseCore(ItemStack item) {
+        if (item == null || item.getType() != Material.SLIME_BALL || !item.hasItemMeta()) return false;
+        ItemMeta meta = item.getItemMeta();
+        String type = meta.getPersistentDataContainer().get(weaponTypeKey, PersistentDataType.STRING);
+        if ("eclipse_core".equals(type)) return true;
+        String legacyName = meta.hasDisplayName() ? meta.getDisplayName() : "";
+        String componentName = meta.displayName() == null ? ""
+                : LegacyComponentSerializer.legacySection().serialize(meta.displayName());
+        String name = ChatColor.stripColor(legacyName).trim();
+        if (name.isEmpty()) name = ChatColor.stripColor(componentName).trim();
+        return "Eclipse Core".equalsIgnoreCase(name);
     }
 
     private ItemStack createNamedWeapon(Material material, String name, String type, boolean normal) {
@@ -1348,13 +1369,22 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
     }
 
     private void activateEclipseCore(Player player) {
-        if (activeDomes.containsKey(player.getUniqueId())) return;
+        if (activeDomes.containsKey(player.getUniqueId())) {
+            player.sendActionBar(ChatColor.DARK_PURPLE + "The Eclipse is already active around you.");
+            return;
+        }
         Player target = player.getWorld().getPlayers().stream()
-                .filter(other -> other != player && other.getLocation().distanceSquared(player.getLocation()) <= 24 * 24)
+                .filter(other -> other != player && other.isOnline()
+                        && other.getGameMode() != org.bukkit.GameMode.SPECTATOR
+                        && other.getLocation().distanceSquared(player.getLocation()) <= 24 * 24)
                 .min(java.util.Comparator.comparingDouble(other -> other.getLocation().distanceSquared(player.getLocation())))
                 .orElse(null);
         if (target == null) {
-            player.sendMessage(ChatColor.RED + "No other player is within 24 blocks.");
+            player.sendMessage(ChatColor.RED + "Eclipse Core needs another player within 24 blocks.");
+            player.sendActionBar(ChatColor.DARK_PURPLE + "No nearby player to pull into the Eclipse.");
+            player.getWorld().playSound(player.getLocation(), Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 0.8f, 0.8f);
+            player.getWorld().spawnParticle(Particle.REVERSE_PORTAL,
+                    player.getLocation().add(0, 1.0, 0), 45, 0.8, 1.0, 0.8, 0.12);
             return;
         }
         Location center = player.getLocation().clone().add(target.getLocation()).multiply(0.5);
