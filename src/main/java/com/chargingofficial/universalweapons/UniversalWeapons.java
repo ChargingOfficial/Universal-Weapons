@@ -227,6 +227,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         BukkitRunnable ritual = new BukkitRunnable() {
             private int elapsedTicks = 0;
             private static final int DURATION_TICKS = 600;
+            // Eclipse accelerates the world's daylight toward midnight over the channel.
+            private final long eclipseStartingTime = world.getTime();
+            private final long eclipseNightDistance = (18000L - eclipseStartingTime + 24000L) % 24000L;
 
             @Override
             public void run() {
@@ -249,6 +252,12 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 }
 
                 elapsedTicks++;
+                // Smoothly accelerate the sky to night only during the Eclipse Core ritual.
+                if ("eclipse_core".equals(type)) {
+                    long acceleratedTime = eclipseStartingTime
+                            + (eclipseNightDistance * elapsedTicks / DURATION_TICKS);
+                    world.setTime(acceleratedTime % 24000L);
+                }
                 Location center = player.getLocation().add(0, 1.0, 0);
                 int progress = Math.min(100, elapsedTicks * 100 / DURATION_TICKS);
                 player.sendActionBar(ChatColor.GOLD + displayName + " "
