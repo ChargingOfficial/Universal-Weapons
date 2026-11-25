@@ -789,6 +789,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     double build = Math.min(3.15, 1.05 + elapsedTicks / 285.0)
                             * (1.0 + auraTier * 0.035);
                     double rotation = angle * (1.7 + auraTier * 0.035);
+                    Location core = at.clone().add(0, 1.0, 0);
 
                     // Opening eruption: recreate the dramatic cyan-and-violet particle
                     // storm immediately when the Calamity ritual starts.
@@ -907,7 +908,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     }
 
                     // The player's body is engulfed in a dense, constantly swelling corruption aura.
-                    Location core = at.clone().add(0, 1.0, 0);
                     double auraSpread = 1.15 + progress * 0.025 + auraTier * 0.12;
                     world.spawnParticle(Particle.DRAGON_BREATH, core,
                             (int) ((150 + progress * 3) * stagePower),
