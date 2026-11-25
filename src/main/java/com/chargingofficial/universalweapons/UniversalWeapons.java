@@ -1396,29 +1396,75 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         target.sendTitle(ChatColor.BLACK + "" + ChatColor.BOLD + "ECLIPSE", ChatColor.DARK_PURPLE + "You are trapped", 5, 35, 10);
         World world = player.getWorld();
         world.playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 1.4f, 0.55f);
+        buildEclipseBlockShell(dome);
         dome.task = Bukkit.getScheduler().runTaskTimer(this, () -> {
             if (!player.isOnline() || !target.isOnline() || !player.isValid() || !target.isValid()
                     || !player.getWorld().equals(world) || !target.getWorld().equals(world)) {
                 endDome(dome); return;
             }
-            for (int y = 0; y <= 16; y++) {
-                double phi = Math.PI * y / 16.0;
-                double ring = radius * Math.sin(phi);
-                double height = radius * Math.cos(phi);
-                for (int i = 0; i < 48; i++) {
-                    double theta = Math.PI * 2 * i / 48.0;
-                    Location p = center.clone().add(Math.cos(theta) * ring, height + radius, Math.sin(theta) * ring);
-                    world.spawnParticle(Particle.DUST, p, 2, 0.025, 0.025, 0.025, 0.0,
-                            new Particle.DustOptions(Color.fromRGB(5, 5, 8), 2.0f));
-                    if (i % 3 == 0) world.spawnParticle(Particle.SMOKE, p, 1, 0.04, 0.04, 0.04, 0.005);
+            // Place a small batch each tick so the dark shell visibly grows around them.
+            int placedThisTick = 0;
+            while (dome.nextBlock < dome.shellBlocks.size() && placedThisTick < 16) {
+                Location blockLocation = dome.shellBlocks.get(dome.nextBlock++);
+                org.bukkit.block.Block block = world.getBlockAt(blockLocation);
+                if (!block.getType().isAir()) continue;
+                dome.originalBlocks.put(blockLocation.clone(), block.getBlockData().clone());
+                block.setType(Material.CRYING_OBSIDIAN, false);
+                world.spawnParticle(Particle.REVERSE_PORTAL,
+                        block.getLocation().add(0.5, 0.5, 0.5), 3, 0.18, 0.18, 0.18, 0.025);
+                placedThisTick++;
+            }
+            if (dome.nextBlock >= dome.shellBlocks.size()) {
+                // Once built, leave a faint void shimmer on the completed structure.
+                if (Bukkit.getCurrentTick() % 10 == 0) {
+                    for (int i = 0; i < 18; i++) {
+                        double angle = Math.PI * 2.0 * i / 18.0 + Bukkit.getCurrentTick() * 0.012;
+                        double y = 0.5 + (i % 6) * (radius * 2.0 / 6.0);
+                        double ring = Math.sqrt(Math.max(0, radius * radius
+                                - Math.pow(y - radius, 2)));
+                        Location p = center.clone().add(Math.cos(angle) * ring, y, Math.sin(angle) * ring);
+                        world.spawnParticle(Particle.DUST, p, 1, 0, 0, 0, 0,
+                                new Particle.DustOptions(Color.fromRGB(5, 5, 8), 1.5f));
+                    }
                 }
             }
-        }, 0L, 5L);
+        }, 0L, 1L);
         Bukkit.getScheduler().runTaskLater(this, () -> endDome(dome), 240L);
     }
 
+    private void buildEclipseBlockShell(DomeSession dome) {
+        World world = dome.center.getWorld();
+        Set<String> seen = new HashSet<>();
+        int baseX = dome.center.getBlockX();
+        int baseY = dome.center.getBlockY();
+        int baseZ = dome.center.getBlockZ();
+        int maxY = (int) Math.ceil(dome.radius * 2.0);
+        for (int y = 0; y <= maxY; y++) {
+            double verticalOffset = y - dome.radius;
+            double ringRadius = Math.sqrt(Math.max(0,
+                    dome.radius * dome.radius - verticalOffset * verticalOffset));
+            int points = Math.max(1, (int) Math.ceil(Math.PI * 2.0 * ringRadius * 1.15));
+            for (int i = 0; i < points; i++) {
+                double angle = Math.PI * 2.0 * i / points;
+                int x = baseX + (int) Math.round(Math.cos(angle) * ringRadius);
+                int z = baseZ + (int) Math.round(Math.sin(angle) * ringRadius);
+                String key = x + ":" + (baseY + y) + ":" + z;
+                if (seen.add(key)) dome.shellBlocks.add(new Location(world, x, baseY + y, z));
+            }
+        }
+    }
+
     private void endDome(DomeSession dome) {
-        dome.task.cancel();
+        if (dome.task != null) dome.task.cancel();
+        // Restore only blocks that are still the temporary dome material, avoiding
+        // overwriting a block another player or plugin changed during the ability.
+        for (Map.Entry<Location, org.bukkit.block.data.BlockData> entry : dome.originalBlocks.entrySet()) {
+            org.bukkit.block.Block block = entry.getKey().getBlock();
+            if (block.getType() == Material.CRYING_OBSIDIAN) {
+                block.setBlockData(entry.getValue(), false);
+            }
+        }
+        dome.originalBlocks.clear();
         activeDomes.remove(dome.first);
         activeDomes.remove(dome.second);
         Player first = Bukkit.getPlayer(dome.first);
@@ -1431,6 +1477,9 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         private final UUID first, second;
         private final Location center;
         private final double radius;
+        private final List<Location> shellBlocks = new java.util.ArrayList<>();
+        private final Map<Location, org.bukkit.block.data.BlockData> originalBlocks = new HashMap<>();
+        private int nextBlock = 0;
         private BukkitTask task;
         private DomeSession(UUID first, UUID second, Location center, double radius) {
             this.first = first; this.second = second; this.center = center; this.radius = radius;
