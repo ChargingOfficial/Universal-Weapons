@@ -375,40 +375,15 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         world.spawnParticle(Particle.ASH,center,36,1.3,1.2,1.3,0.02);
                     }
                     case "eclipse_core" -> {
-                        // Dense, highly visible orbital bands remain active for every tick
-                        // of the Eclipse ritual and rotate in opposing directions.
-                        double orbitRadius = 2.65 + Math.sin(elapsedTicks * 0.035) * 0.28;
-                        for (int i = 0; i < 72; i++) {
-                            double angle = Math.PI * 2.0 * i / 72.0 - elapsedTicks * 0.105;
-                            double height = -0.75 + (i % 18) * 0.145;
-                            Location orbit = center.clone().add(
-                                    Math.cos(angle) * orbitRadius, height, Math.sin(angle) * orbitRadius);
-                            world.spawnParticle(Particle.PORTAL, orbit, 9, 0.08, 0.10, 0.08, 0.12);
-                            world.spawnParticle(Particle.REVERSE_PORTAL, orbit, 5, 0.06, 0.08, 0.06, 0.08);
-                            if (i % 2 == 0) {
-                                world.spawnParticle(Particle.SQUID_INK, orbit, 3, 0.04, 0.06, 0.04, 0.01);
-                            }
+                        for(int i=0;i<40;i++){
+                            double a=Math.PI*2*i/40.0-elapsedTicks*0.07, radius=3.2-progress/100.0*1.4;
+                            Location p=center.clone().add(Math.cos(a)*radius,-0.8+(i%10)*0.32,Math.sin(a)*radius);
+                            world.spawnParticle(Particle.SQUID_INK,p,3,0.12,0.16,0.12,0.01);
+                            world.spawnParticle(Particle.PORTAL,p,5,0.18,0.20,0.18,0.18);
                         }
-                        // A second, wider counter-rotating halo makes the motion obvious
-                        // even when the player is surrounded by the inner void particles.
-                        double outerRadius = 4.0 + Math.sin(elapsedTicks * 0.045) * 0.35;
-                        for (int i = 0; i < 48; i++) {
-                            double angle = Math.PI * 2.0 * i / 48.0 + elapsedTicks * 0.075;
-                            double height = -0.95 + (i % 12) * 0.30;
-                            Location orbit = center.clone().add(
-                                    Math.cos(angle) * outerRadius, height, Math.sin(angle) * outerRadius);
-                            world.spawnParticle(Particle.REVERSE_PORTAL, orbit, 7, 0.07, 0.10, 0.07, 0.10);
-                            if (i % 2 == 0) {
-                                world.spawnParticle(Particle.ELECTRIC_SPARK, orbit, 4, 0.06, 0.09, 0.06, 0.08);
-                            }
-                        }
-                        world.spawnParticle(Particle.SQUID_INK, center, 42, 1.0, 1.2, 1.0, 0.01);
-                        world.spawnParticle(Particle.PORTAL, center, 90, 1.8, 2.0, 1.8, 0.20);
-                        world.spawnParticle(Particle.REVERSE_PORTAL, center, 85, 1.7, 1.9, 1.7, 0.16);
-                        world.spawnParticle(Particle.WITCH, center, 32, 0.9, 1.3, 0.9, 0.03);
-                        if (elapsedTicks % 30 == 0) {
-                            world.spawnParticle(Particle.SONIC_BOOM, center.clone().add(0, 0.4, 0), 1);
-                        }
+                        world.spawnParticle(Particle.REVERSE_PORTAL,center,55,1.6,1.8,1.6,0.12);
+                        world.spawnParticle(Particle.WITCH,center,20,0.8,1.2,0.8,0.02);
+                        if(elapsedTicks%30==0) world.spawnParticle(Particle.SONIC_BOOM,center.clone().add(0,0.4,0),1);
                     }
                     default -> world.spawnParticle(Particle.END_ROD,center,12,0.8,1.0,0.8,0.03);
                 }
@@ -533,10 +508,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         case "judgment_spear" -> world.playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.4f, 1.25f);
                         case "storm_trident" -> world.playSound(center, Sound.ENTITY_GENERIC_SPLASH, 1.3f, 0.7f);
                         case "bloodreaver_axe" -> world.playSound(center, Sound.ENTITY_ZOGLIN_ANGRY, 1.1f, 0.55f);
-                        case "eclipse_core" -> {
-                            world.playSound(center, Sound.ENTITY_ENDERMAN_TELEPORT, 1.2f, 0.55f);
-                            world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.55f);
-                        }
+                        case "eclipse_core" -> world.playSound(center, Sound.ENTITY_ENDERMAN_TELEPORT, 1.2f, 0.55f);
                         default -> { }
                     }
                     player.sendTitle(ChatColor.GOLD + "" + ChatColor.BOLD + displayName + " AWAKENED",
