@@ -577,21 +577,27 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     return;
                 }
 
-                // Once started, don't repeat the fragile custom-name parser every tick.
-                // The ritual only requires that the mace remains in the main hand.
+                // Validate only the item type after activation. Re-parsing a renamed
+                // ItemStack every tick can reject valid legacy/component display names
+                // and restart the ritual indefinitely.
                 ItemStack currentHeld = player.getInventory().getItemInMainHand();
-                if (currentHeld.getType() != Material.MACE || !isRitualReady(player)) {
+                if (currentHeld.getType() != Material.MACE) {
                     interrupt();
                     return;
                 }
 
-                Location currentBlock = getRitualBlock(player);
+                // Use the player's feet position relative to the original block rather
+                // than re-detecting the supporting block each tick. Tiny vertical
+                // collision offsets can otherwise make a stationary player appear to
+                // have stepped off the command block and reset the ritual.
                 Location originalBlock = ritualBlocks.get(id);
-                if (currentBlock == null || originalBlock == null
-                        || !currentBlock.getWorld().equals(originalBlock.getWorld())
-                        || currentBlock.getBlockX() != originalBlock.getBlockX()
-                        || currentBlock.getBlockY() != originalBlock.getBlockY()
-                        || currentBlock.getBlockZ() != originalBlock.getBlockZ()) {
+                Location playerFeet = player.getLocation();
+                if (originalBlock == null
+                        || !playerFeet.getWorld().equals(originalBlock.getWorld())
+                        || playerFeet.getBlockX() != originalBlock.getBlockX()
+                        || playerFeet.getBlockZ() != originalBlock.getBlockZ()
+                        || playerFeet.getY() < originalBlock.getY() + 0.80
+                        || playerFeet.getY() > originalBlock.getY() + 1.65) {
                     interrupt();
                     return;
                 }
