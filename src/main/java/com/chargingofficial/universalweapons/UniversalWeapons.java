@@ -120,7 +120,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         grappleReadyAt.clear();
         abilityDamageInProgress.clear();
         grapplingPlayers.clear();
-        for (DomeSession dome : new HashSet<>(activeDomes.values())) dome.task.cancel();
+        for (DomeSession dome : new HashSet<>(activeDomes.values())) endDome(dome);
         activeDomes.clear();
         axeHitCounts.clear();
         groundSlamming.clear();
