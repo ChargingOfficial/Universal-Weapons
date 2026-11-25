@@ -1396,76 +1396,59 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         target.sendTitle(ChatColor.BLACK + "" + ChatColor.BOLD + "ECLIPSE", ChatColor.DARK_PURPLE + "You are trapped", 5, 35, 10);
         World world = player.getWorld();
         world.playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_DEPLETE, 1.4f, 0.55f);
-        buildEclipseBlockShell(dome);
+        // Render a dense particle-only shell. Repaint it continuously so the dome
+        // remains visually complete without placing or modifying any world blocks.
         dome.task = Bukkit.getScheduler().runTaskTimer(this, () -> {
             if (!player.isOnline() || !target.isOnline() || !player.isValid() || !target.isValid()
                     || !player.getWorld().equals(world) || !target.getWorld().equals(world)) {
-                endDome(dome); return;
+                endDome(dome);
+                return;
             }
-            // Place a small batch each tick so the dark shell visibly grows around them.
-            int placedThisTick = 0;
-            while (dome.nextBlock < dome.shellBlocks.size() && placedThisTick < 16) {
-                Location blockLocation = dome.shellBlocks.get(dome.nextBlock++);
-                org.bukkit.block.Block block = world.getBlockAt(blockLocation);
-                if (!block.getType().isAir()) continue;
-                dome.originalBlocks.put(blockLocation.clone(), block.getBlockData().clone());
-                block.setType(Material.CRYING_OBSIDIAN, false);
-                world.spawnParticle(Particle.REVERSE_PORTAL,
-                        block.getLocation().add(0.5, 0.5, 0.5), 3, 0.18, 0.18, 0.18, 0.025);
-                placedThisTick++;
-            }
-            if (dome.nextBlock >= dome.shellBlocks.size()) {
-                // Once built, leave a faint void shimmer on the completed structure.
-                if (++dome.animationTicks % 10 == 0) {
-                    for (int i = 0; i < 18; i++) {
-                        double angle = Math.PI * 2.0 * i / 18.0 + Bukkit.getCurrentTick() * 0.012;
-                        double y = 0.5 + (i % 6) * (radius * 2.0 / 6.0);
-                        double ring = Math.sqrt(Math.max(0, radius * radius
-                                - Math.pow(y - radius, 2)));
-                        Location p = center.clone().add(Math.cos(angle) * ring, y, Math.sin(angle) * ring);
-                        world.spawnParticle(Particle.DUST, p, 1, 0, 0, 0, 0,
-                                new Particle.DustOptions(Color.fromRGB(5, 5, 8), 1.5f));
-                    }
-                }
+            dome.animationTicks++;
+            if (dome.animationTicks % 4 == 0) {
+                renderEclipseParticleDome(dome);
             }
         }, 0L, 1L);
         Bukkit.getScheduler().runTaskLater(this, () -> endDome(dome), 240L);
     }
 
-    private void buildEclipseBlockShell(DomeSession dome) {
+    private void renderEclipseParticleDome(DomeSession dome) {
         World world = dome.center.getWorld();
-        Set<String> seen = new HashSet<>();
-        int baseX = dome.center.getBlockX();
-        int baseY = dome.center.getBlockY();
-        int baseZ = dome.center.getBlockZ();
-        // Build an upper hemisphere: wide at the ground around both players,
-        // narrowing smoothly to a crown above them.
-        int maxY = (int) Math.ceil(dome.radius);
-        for (int y = 0; y <= maxY; y++) {
+        if (world == null) return;
+
+        // Closely spaced latitude rings form a continuous upper hemisphere.
+        // A 0.30-block surface interval keeps the shell dense while limiting packet load.
+        final double spacing = 0.30;
+        int verticalSteps = (int) Math.ceil(dome.radius / spacing);
+        double rotation = dome.animationTicks * 0.012;
+        Particle.DustOptions voidDust = new Particle.DustOptions(Color.fromRGB(8, 0, 18), 2.2f);
+        Particle.DustOptions edgeDust = new Particle.DustOptions(Color.fromRGB(38, 0, 72), 1.6f);
+
+        for (int yStep = 0; yStep <= verticalSteps; yStep++) {
+            double height = Math.min(dome.radius, yStep * spacing);
             double ringRadius = Math.sqrt(Math.max(0,
-                    dome.radius * dome.radius - y * y));
-            int points = Math.max(1, (int) Math.ceil(Math.PI * 2.0 * ringRadius * 1.15));
+                    dome.radius * dome.radius - height * height));
+            int points = Math.max(1, (int) Math.ceil(Math.PI * 2.0 * ringRadius / spacing));
             for (int i = 0; i < points; i++) {
-                double angle = Math.PI * 2.0 * i / points;
-                int x = baseX + (int) Math.round(Math.cos(angle) * ringRadius);
-                int z = baseZ + (int) Math.round(Math.sin(angle) * ringRadius);
-                String key = x + ":" + (baseY + y) + ":" + z;
-                if (seen.add(key)) dome.shellBlocks.add(new Location(world, x, baseY + y, z));
+                double angle = Math.PI * 2.0 * i / points + rotation;
+                Location point = dome.center.clone().add(
+                        Math.cos(angle) * ringRadius, height, Math.sin(angle) * ringRadius);
+                world.spawnParticle(Particle.DUST, point, 0, 0, 0, 0, 0, voidDust);
+                // Layer portal motes through the surface to hide any apparent pinholes
+                // caused by particle rendering distance or client-side particle culling.
+                if ((i + yStep) % 3 == 0) {
+                    world.spawnParticle(Particle.REVERSE_PORTAL, point, 1,
+                            0.035, 0.035, 0.035, 0.005);
+                }
+                if ((i + yStep) % 7 == 0) {
+                    world.spawnParticle(Particle.DUST, point, 0, 0, 0, 0, 0, edgeDust);
+                }
             }
         }
     }
 
     private void endDome(DomeSession dome) {
         if (dome.task != null) dome.task.cancel();
-        // Restore only blocks that are still the temporary dome material, avoiding
-        // overwriting a block another player or plugin changed during the ability.
-        for (Map.Entry<Location, org.bukkit.block.data.BlockData> entry : dome.originalBlocks.entrySet()) {
-            org.bukkit.block.Block block = entry.getKey().getBlock();
-            if (block.getType() == Material.CRYING_OBSIDIAN) {
-                block.setBlockData(entry.getValue(), false);
-            }
-        }
-        dome.originalBlocks.clear();
         activeDomes.remove(dome.first);
         activeDomes.remove(dome.second);
         Player first = Bukkit.getPlayer(dome.first);
@@ -1478,9 +1461,6 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         private final UUID first, second;
         private final Location center;
         private final double radius;
-        private final List<Location> shellBlocks = new java.util.ArrayList<>();
-        private final Map<Location, org.bukkit.block.data.BlockData> originalBlocks = new HashMap<>();
-        private int nextBlock = 0;
         private int animationTicks = 0;
         private BukkitTask task;
         private DomeSession(UUID first, UUID second, Location center, double radius) {
