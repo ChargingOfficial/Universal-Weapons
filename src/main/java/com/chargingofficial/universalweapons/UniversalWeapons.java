@@ -790,6 +790,71 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                             * (1.0 + auraTier * 0.035);
                     double rotation = angle * (1.7 + auraTier * 0.035);
 
+                    // Opening eruption: recreate the dramatic cyan-and-violet particle
+                    // storm immediately when the Calamity ritual starts.
+                    if (elapsedTicks == 1) {
+                        world.spawnParticle(Particle.EXPLOSION, core, 5);
+                        world.spawnParticle(Particle.FLASH, core, 12, 1.4, 1.8, 1.4, 0.0);
+                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, core, 420, 2.8, 2.2, 2.8, 0.16);
+                        world.spawnParticle(Particle.PORTAL, core, 620, 3.4, 2.8, 3.4, 0.32);
+                        world.spawnParticle(Particle.REVERSE_PORTAL, core, 520, 3.0, 2.5, 3.0, 0.24);
+                        world.spawnParticle(Particle.ELECTRIC_SPARK, core, 360, 2.8, 2.4, 2.8, 0.20);
+                        world.spawnParticle(Particle.END_ROD, core, 180, 1.8, 2.4, 1.8, 0.14);
+                        world.spawnParticle(Particle.SONIC_BOOM, core, 2);
+                        for (int point = 0; point < 72; point++) {
+                            double a = Math.PI * 2.0 * point / 72.0;
+                            double radius = 2.2 + (point % 6) * 0.78;
+                            Location flare = at.clone().add(Math.cos(a) * radius,
+                                    -0.7 + (point % 9) * 0.43, Math.sin(a) * radius);
+                            world.spawnParticle(Particle.SOUL_FIRE_FLAME, flare, 8,
+                                    0.16, 0.20, 0.16, 0.08);
+                            world.spawnParticle(Particle.REVERSE_PORTAL, flare, 10,
+                                    0.18, 0.22, 0.18, 0.16);
+                            world.spawnParticle(Particle.ELECTRIC_SPARK, flare, 7,
+                                    0.14, 0.18, 0.14, 0.12);
+                        }
+                        for (int bolt = 0; bolt < 8; bolt++) {
+                            double a = Math.PI * 2.0 * bolt / 8.0;
+                            Location strike = at.clone().add(Math.cos(a) * 4.0, 0,
+                                    Math.sin(a) * 4.0);
+                            world.strikeLightningEffect(strike);
+                        }
+                        world.playSound(at, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.4f, 0.65f);
+                        world.playSound(at, Sound.ENTITY_WARDEN_SONIC_BOOM, 1.0f, 0.8f);
+                        world.playSound(at, Sound.BLOCK_END_PORTAL_SPAWN, 1.0f, 0.7f);
+                    }
+
+                    // After the opening eruption, periodic violet/cyan skyfall pulses
+                    // keep adding visible energy and grow stronger as the ritual advances.
+                    if (elapsedTicks > 1 && elapsedTicks % 40 == 0) {
+                        int pulsePower = 1 + auraTier;
+                        double pulseRadius = 3.0 + progress * 0.075;
+                        for (int point = 0; point < 48; point++) {
+                            double a = Math.PI * 2.0 * point / 48.0 + rotation;
+                            Location pulse = at.clone().add(Math.cos(a) * pulseRadius,
+                                    0.15 + (point % 6) * 0.48, Math.sin(a) * pulseRadius);
+                            world.spawnParticle(Particle.SOUL_FIRE_FLAME, pulse,
+                                    4 + pulsePower * 2, 0.12, 0.18, 0.12, 0.06);
+                            world.spawnParticle(Particle.REVERSE_PORTAL, pulse,
+                                    5 + pulsePower * 2, 0.14, 0.20, 0.14, 0.14);
+                            if (point % 2 == 0) {
+                                world.spawnParticle(Particle.ELECTRIC_SPARK, pulse,
+                                        3 + pulsePower, 0.12, 0.18, 0.12, 0.10);
+                            }
+                        }
+                        for (int column = 0; column < 6; column++) {
+                            double a = rotation * 1.3 + Math.PI * 2.0 * column / 6.0;
+                            Location pillar = at.clone().add(Math.cos(a) * (2.0 + auraTier * 0.22),
+                                    2.0, Math.sin(a) * (2.0 + auraTier * 0.22));
+                            world.spawnParticle(Particle.SOUL_FIRE_FLAME, pillar,
+                                    18 + auraTier * 3, 0.18, 1.2, 0.18, 0.08);
+                            world.spawnParticle(Particle.PORTAL, pillar,
+                                    24 + auraTier * 4, 0.22, 1.4, 0.22, 0.22);
+                        }
+                        world.playSound(at, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE,
+                                0.55f + auraTier * 0.04f, 0.65f + auraTier * 0.07f);
+                    }
+
                     // Four orbiting rings surround the player at different heights.
                     // Their radius, speed and particle density all intensify over time.
                     for (int ring = 0; ring < 4; ring++) {
