@@ -172,7 +172,12 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
         if (getRitualBlock(player) == null) return null;
         ItemStack held = player.getInventory().getItemInMainHand();
         if (!held.hasItemMeta() || !held.getItemMeta().hasDisplayName()) return null;
-        String name = ChatColor.stripColor(held.getItemMeta().getDisplayName()).trim();
+        ItemMeta heldMeta = held.getItemMeta();
+        String legacyName = heldMeta.hasDisplayName() ? heldMeta.getDisplayName() : "";
+        String componentName = heldMeta.displayName() == null ? ""
+                : LegacyComponentSerializer.legacySection().serialize(heldMeta.displayName());
+        String name = ChatColor.stripColor(legacyName).trim();
+        if (name.isEmpty()) name = ChatColor.stripColor(componentName).trim();
         return switch (name.toLowerCase(java.util.Locale.ROOT)) {
             case "calamity" -> held.getType() == Material.MACE ? "calamity" : null;
             case "infernal" -> held.getType() == Material.CROSSBOW ? "infernal_crossbow" : null;
@@ -267,15 +272,27 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 // ocean vortex, bloodstorm shockwaves, or imploding void.
                 switch (type) {
                     case "infernal_crossbow" -> {
-                        for (int i=0;i<36;i++) {
-                            double a=elapsedTicks*0.16+Math.PI*2*i/36.0, y=0.15+(i%12)*0.22;
-                            double radius=1.0+(i%4)*0.42+progress*0.008;
+                        // Keep the fire spiral tight and light around the player.
+                        for (int i=0;i<16;i++) {
+                            double a=elapsedTicks*0.16+Math.PI*2*i/16.0, y=0.15+(i%8)*0.27;
+                            double radius=1.6+(i%4)*0.38+progress*0.009;
                             Location p=center.clone().add(Math.cos(a)*radius,y,Math.sin(a)*radius);
-                            world.spawnParticle(Particle.FLAME,p,4,0.12,0.18,0.12,0.025);
-                            world.spawnParticle(Particle.SOUL_FIRE_FLAME,p,2,0.08,0.12,0.08,0.015);
+                            world.spawnParticle(Particle.FLAME,p,2,0.08,0.12,0.08,0.018);
+                            world.spawnParticle(Particle.SOUL_FIRE_FLAME,p,1,0.05,0.08,0.05,0.01);
                         }
-                        world.spawnParticle(Particle.LAVA,center.clone().add(0,-0.65,0),5,1.1,0.08,1.1,0);
-                        world.spawnParticle(Particle.SMOKE,center,28,0.8,1.0,0.8,0.035);
+                        // Scattered embers form a much wider perimeter around the ritual site.
+                        if (elapsedTicks % 5 == 0) {
+                            double outerRadius = 5.0 + progress * 0.035;
+                            for (int i=0;i<32;i++) {
+                                double a=Math.PI*2*i/32.0+elapsedTicks*0.012;
+                                Location ember=center.clone().add(Math.cos(a)*outerRadius,
+                                        -0.65+(i%4)*0.48,Math.sin(a)*outerRadius);
+                                world.spawnParticle(Particle.FLAME,ember,2,0.22,0.18,0.22,0.025);
+                                if (i%2==0) world.spawnParticle(Particle.SMOKE,ember,1,0.16,0.22,0.16,0.008);
+                            }
+                        }
+                        world.spawnParticle(Particle.LAVA,center.clone().add(0,-0.65,0),3,0.7,0.06,0.7,0);
+                        world.spawnParticle(Particle.SMOKE,center,12,0.6,0.8,0.6,0.025);
                         if(elapsedTicks%12==0) world.spawnParticle(Particle.FLASH,center.clone().add(0,1.8,0),1);
                     }
                     case "judgment_spear" -> {
@@ -293,16 +310,35 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         if(elapsedTicks%8==0) world.spawnParticle(Particle.FLASH,center.clone().add(0,2,0),1);
                     }
                     case "storm_trident" -> {
-                        for(int i=0;i<32;i++){
-                            double a=elapsedTicks*0.09+Math.PI*2*i/32.0;
-                            double radius=2.8-(i%8)*0.19+Math.sin(elapsedTicks*0.08+i)*0.22;
-                            Location p=center.clone().add(Math.cos(a)*radius,-0.65+(i%8)*0.34,Math.sin(a)*radius);
-                            world.spawnParticle(Particle.BUBBLE,p,5,0.16,0.12,0.16,0.025);
-                            world.spawnParticle(Particle.DRIPPING_WATER,p,2,0.10,0.14,0.10,0.01);
+                        // Broad twin tidal rings rotate in opposite directions around the player.
+                        for(int i=0;i<56;i++){
+                            double a=elapsedTicks*0.075+Math.PI*2*i/56.0;
+                            double radius=4.0+(i%7)*0.34+Math.sin(elapsedTicks*0.06+i)*0.24;
+                            Location p=center.clone().add(Math.cos(a)*radius,
+                                    -0.75+(i%10)*0.29,Math.sin(a)*radius);
+                            world.spawnParticle(Particle.BUBBLE,p,4,0.18,0.14,0.18,0.035);
+                            world.spawnParticle(Particle.DRIPPING_WATER,p,2,0.12,0.16,0.12,0.015);
+                            if(i%2==0) {
+                                Location outer=p.clone().add(Math.cos(a+Math.PI)*1.15,0.55,
+                                        Math.sin(a+Math.PI)*1.15);
+                                world.spawnParticle(Particle.SPLASH,outer,3,0.14,0.12,0.14,0.045);
+                            }
                         }
-                        world.spawnParticle(Particle.SPLASH,center.clone().add(0,-0.55,0),34,1.4,0.12,1.4,0.08);
-                        world.spawnParticle(Particle.DOLPHIN,center,12,0.9,1.0,0.9,0.05);
-                        if(elapsedTicks%40==0) world.spawnParticle(Particle.ELECTRIC_SPARK,center,55,1.3,1.4,1.3,0.16);
+                        // A rising geyser gives the center a stronger, unmistakable water column.
+                        for(int column=0;column<8;column++){
+                            double a=elapsedTicks*0.055+Math.PI*2*column/8.0;
+                            Location base=center.clone().add(Math.cos(a)*1.45,-0.55,
+                                    Math.sin(a)*1.45);
+                            world.spawnParticle(Particle.BUBBLE,base,8,0.22,0.55,0.22,0.08);
+                            world.spawnParticle(Particle.SPLASH,base.clone().add(0,1.4,0),
+                                    6,0.25,0.28,0.25,0.06);
+                        }
+                        world.spawnParticle(Particle.SPLASH,center.clone().add(0,-0.55,0),24,1.0,0.10,1.0,0.06);
+                        world.spawnParticle(Particle.DOLPHIN,center,16,1.2,1.4,1.2,0.06);
+                        if(elapsedTicks%24==0) {
+                            world.spawnParticle(Particle.ELECTRIC_SPARK,center,70,2.8,2.0,2.8,0.18);
+                            world.playSound(center,Sound.ENTITY_DOLPHIN_SPLASH,0.8f,0.65f+progress/180.0f);
+                        }
                     }
                     case "bloodreaver_axe" -> {
                         for(int i=0;i<28;i++){
@@ -339,7 +375,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 // Every 10% unlocks a stronger, weapon-specific burst with a wider radius.
                 if (progress > 0 && progress % 10 == 0 && elapsedTicks % 6 == 0) {
                     int tier = progress / 10;
-                    double spread = 1.0 + tier * 0.48;
+                    double spread = 1.8 + tier * 0.72;
                     Particle burstParticle = switch (type) {
                         case "infernal_crossbow" -> Particle.FLAME;
                         case "judgment_spear" -> Particle.ELECTRIC_SPARK;
@@ -393,7 +429,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         case "infernal_crossbow" -> world.playSound(center, Sound.BLOCK_FIRE_AMBIENT, 0.9f, 0.75f+progress/250.0f);
                         case "judgment_spear" -> world.playSound(center, Sound.BLOCK_BEACON_POWER_SELECT, 0.8f, 1.4f);
                         case "storm_trident" -> world.playSound(center, Sound.WEATHER_RAIN, 0.65f, 0.8f);
-                        case "bloodreaver_axe" -> world.playSound(center, Sound.ENTITY_RAVAGER_ROAR, 0.65f, 0.65f);
+                        case "bloodreaver_axe" -> world.playSound(center, Sound.ENTITY_ZOGLIN_ANGRY, 0.65f, 0.75f);
                         case "eclipse_core" -> world.playSound(center, Sound.BLOCK_PORTAL_AMBIENT, 0.8f, 0.5f);
                         default -> { }
                     }
@@ -440,7 +476,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                     world.spawnParticle(Particle.TOTEM_OF_UNDYING, center, 130, 1.8, 2.0, 1.8, 0.18);
                     for (int i = 0; i < 36; i++) {
                         double direction = Math.PI * 2.0 * i / 36.0;
-                        double distance = 1.2 + (i % 6) * 0.62;
+                        double distance = 2.0 + (i % 8) * 0.95;
                         Location dispersal = center.clone().add(Math.cos(direction) * distance,
                                 -0.8 + (i % 9) * 0.42, Math.sin(direction) * distance);
                         world.spawnParticle(primary, dispersal, 12, 0.22, 0.24, 0.22, 0.10);
@@ -455,7 +491,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         case "infernal_crossbow" -> world.playSound(center, Sound.ENTITY_BLAZE_DEATH, 1.2f, 0.75f);
                         case "judgment_spear" -> world.playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.4f, 1.25f);
                         case "storm_trident" -> world.playSound(center, Sound.ENTITY_GENERIC_SPLASH, 1.3f, 0.7f);
-                        case "bloodreaver_axe" -> world.playSound(center, Sound.ENTITY_RAVAGER_DEATH, 1.1f, 0.8f);
+                        case "bloodreaver_axe" -> world.playSound(center, Sound.ENTITY_ZOGLIN_ANGRY, 1.1f, 0.55f);
                         case "eclipse_core" -> world.playSound(center, Sound.ENTITY_ENDERMAN_TELEPORT, 1.2f, 0.55f);
                         default -> { }
                     }
@@ -565,7 +601,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 // Ten distinct corruption stages: each 10% expands the effect and raises the charge.
                 if (progress > 0 && progress % 10 == 0 && elapsedTicks % 6 == 0) {
                     int tier = progress / 10;
-                    double radius = 1.0 + tier * 0.52;
+                    double radius = 1.8 + tier * 0.78;
                     for (int i = 0; i < 32; i++) {
                         double direction = Math.PI * 2.0 * i / 32.0 + elapsedTicks * 0.024;
                         double distance = radius * (0.72 + (i % 5) * 0.07);
@@ -672,16 +708,16 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 // Particle rendering is cosmetic; a particle/API issue must never
                 // terminate the timer or freeze the progress bar.
                 try {
-                double build = Math.min(1.8, 0.65 + elapsedTicks / 450.0);
+                double build = Math.min(2.35, 0.85 + elapsedTicks / 380.0);
 
                 // Three dense rotating rings form a large, layered halo around the player.
                 for (int i = 0; i < 32; i++) {
                     double a = angle + (Math.PI * 2.0 * i / 32.0);
                     double x = Math.cos(a);
                     double z = Math.sin(a);
-                    Location groundRing = at.clone().add(x * 4.8 * build, 0.10, z * 4.8 * build);
-                    Location waistRing = at.clone().add(x * 3.4 * build, 1.05, z * 3.4 * build);
-                    Location crownRing = at.clone().add(x * 4.2 * build, 2.15, z * 4.2 * build);
+                    Location groundRing = at.clone().add(x * 6.2 * build, 0.10, z * 6.2 * build);
+                    Location waistRing = at.clone().add(x * 4.6 * build, 1.05, z * 4.6 * build);
+                    Location crownRing = at.clone().add(x * 5.6 * build, 2.15, z * 5.6 * build);
                     world.spawnParticle(Particle.PORTAL, groundRing, 5, 0.08, 0.05, 0.08, 0.12);
                     world.spawnParticle(Particle.SOUL_FIRE_FLAME, groundRing, 2, 0.04, 0.08, 0.04, 0.015);
                     world.spawnParticle(Particle.DRAGON_BREATH, waistRing, 5, 0.07, 0.08, 0.07, 0.035);
@@ -693,7 +729,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 for (int i = 0; i < 5; i++) {
                     double spiral = angle * 1.35 + (Math.PI * 2.0 * i / 5.0);
                     double height = (elapsedTicks * 0.095 + i * 0.50) % 3.2;
-                    double radius = 2.0 + Math.sin(height * 1.3) * 0.9;
+                    double radius = 2.8 + Math.sin(height * 1.3) * 1.25;
                     Location vortex = at.clone().add(Math.cos(spiral) * radius,
                             0.10 + height, Math.sin(spiral) * radius);
                     world.spawnParticle(Particle.DRAGON_BREATH, vortex, 12, 0.28, 0.22, 0.28, 0.05);
@@ -714,7 +750,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
                 // The ground circle expands in pulses beneath the ritualist.
                 if (elapsedTicks % 8 == 0) {
-                    double pulseRadius = 1.5 + (elapsedTicks % 32) / 32.0 * 3.2;
+                    double pulseRadius = 2.2 + (elapsedTicks % 32) / 32.0 * 4.6;
                     for (int i = 0; i < 48; i++) {
                         double p = Math.PI * 2.0 * i / 48.0;
                         Location pulse = at.clone().add(Math.cos(p) * pulseRadius,
@@ -770,8 +806,8 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 if (elapsedTicks >= 100 && elapsedTicks < RITUAL_DURATION_TICKS
                         && elapsedTicks % 80 == 0) {
                     double boltAngle = elapsedTicks * 0.11;
-                    Location bolt = at.clone().add(Math.cos(boltAngle) * 4.0, 0,
-                            Math.sin(boltAngle) * 4.0);
+                    Location bolt = at.clone().add(Math.cos(boltAngle) * 6.2, 0,
+                            Math.sin(boltAngle) * 6.2);
                     world.strikeLightningEffect(bolt);
                     world.spawnParticle(Particle.ELECTRIC_SPARK, bolt, 75,
                             0.65, 1.1, 0.65, 0.2);
