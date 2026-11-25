@@ -779,8 +779,13 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
 
                 // Particle rendering is cosmetic; an effect issue must never stop the ritual timer.
                 try {
-                    double build = Math.min(3.15, 1.05 + elapsedTicks / 285.0);
-                    double rotation = angle * 1.7;
+                    // Each 10% milestone permanently raises the ritual's baseline aura.
+                    // Unlike the milestone burst, these values remain elevated until completion.
+                    int auraTier = Math.min(10, progress / 10);
+                    double stagePower = 1.0 + auraTier * 0.16;
+                    double build = Math.min(3.15, 1.05 + elapsedTicks / 285.0)
+                            * (1.0 + auraTier * 0.035);
+                    double rotation = angle * (1.7 + auraTier * 0.035);
 
                     // Four orbiting rings surround the player at different heights.
                     // Their radius, speed and particle density all intensify over time.
@@ -794,19 +799,24 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                             Location orbit = at.clone().add(Math.cos(a) * radius,
                                     height + Math.sin(a * 2.0 + elapsedTicks * 0.045) * 0.22,
                                     Math.sin(a) * radius);
-                            world.spawnParticle(Particle.PORTAL, orbit, 3 + progress / 25,
-                                    0.07, 0.08, 0.07, 0.13);
-                            world.spawnParticle(Particle.DRAGON_BREATH, orbit, 2 + progress / 35,
-                                    0.06, 0.08, 0.06, 0.035);
+                            world.spawnParticle(Particle.PORTAL, orbit, (int) ((3 + progress / 25) * stagePower),
+                                    0.07 + auraTier * 0.006, 0.08 + auraTier * 0.008,
+                                    0.07 + auraTier * 0.006, 0.13 + auraTier * 0.012);
+                            world.spawnParticle(Particle.DRAGON_BREATH, orbit,
+                                    (int) ((2 + progress / 35) * stagePower),
+                                    0.06 + auraTier * 0.005, 0.08 + auraTier * 0.006,
+                                    0.06 + auraTier * 0.005, 0.035 + auraTier * 0.004);
                             if (point % 2 == 0) {
-                                world.spawnParticle(Particle.ELECTRIC_SPARK, orbit, 1 + progress / 50,
-                                        0.08, 0.12, 0.08, 0.08);
+                                world.spawnParticle(Particle.ELECTRIC_SPARK, orbit,
+                                        (int) ((1 + progress / 50) * stagePower),
+                                        0.08 + auraTier * 0.006, 0.12 + auraTier * 0.008,
+                                        0.08 + auraTier * 0.006, 0.08 + auraTier * 0.006);
                             }
                         }
                     }
 
                     // Twelve twisting energy pillars climb from the ground and spiral overhead.
-                    for (int stream = 0; stream < 12; stream++) {
+                    for (int stream = 0; stream < 12 + auraTier * 2; stream++) {
                         double spiral = rotation + Math.PI * 2.0 * stream / 12.0;
                         double height = (elapsedTicks * (0.075 + progress * 0.0007)
                                 + stream * 0.31) % 5.2;
@@ -814,38 +824,74 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                                 * (0.85 + progress * 0.006);
                         Location vortex = at.clone().add(Math.cos(spiral) * radius,
                                 -0.75 + height, Math.sin(spiral) * radius);
-                        world.spawnParticle(Particle.DRAGON_BREATH, vortex, 9 + progress / 8,
-                                0.24, 0.30, 0.24, 0.055);
-                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, vortex, 5 + progress / 15,
-                                0.15, 0.22, 0.15, 0.035);
-                        world.spawnParticle(Particle.REVERSE_PORTAL, vortex, 8 + progress / 10,
-                                0.22, 0.28, 0.22, 0.16);
+                        world.spawnParticle(Particle.DRAGON_BREATH, vortex,
+                                (int) ((9 + progress / 8) * stagePower),
+                                0.24 + auraTier * 0.012, 0.30 + auraTier * 0.015,
+                                0.24 + auraTier * 0.012, 0.055 + auraTier * 0.004);
+                        world.spawnParticle(Particle.SOUL_FIRE_FLAME, vortex,
+                                (int) ((5 + progress / 15) * stagePower),
+                                0.15 + auraTier * 0.008, 0.22 + auraTier * 0.01,
+                                0.15 + auraTier * 0.008, 0.035 + auraTier * 0.003);
+                        world.spawnParticle(Particle.REVERSE_PORTAL, vortex,
+                                (int) ((8 + progress / 10) * stagePower),
+                                0.22 + auraTier * 0.01, 0.28 + auraTier * 0.012,
+                                0.22 + auraTier * 0.01, 0.16 + auraTier * 0.008);
                     }
 
                     // The player's body is engulfed in a dense, constantly swelling corruption aura.
                     Location core = at.clone().add(0, 1.0, 0);
-                    double auraSpread = 1.15 + progress * 0.025;
+                    double auraSpread = 1.15 + progress * 0.025 + auraTier * 0.12;
                     world.spawnParticle(Particle.DRAGON_BREATH, core,
-                            150 + progress * 3, auraSpread, 1.55 + progress * 0.018,
-                            auraSpread, 0.09);
+                            (int) ((150 + progress * 3) * stagePower),
+                            auraSpread, 1.55 + progress * 0.018 + auraTier * 0.08,
+                            auraSpread, 0.09 + auraTier * 0.006);
                     world.spawnParticle(Particle.PORTAL, core,
-                            180 + progress * 3, auraSpread * 1.25, 1.8 + progress * 0.02,
-                            auraSpread * 1.25, 0.28);
+                            (int) ((180 + progress * 3) * stagePower),
+                            auraSpread * 1.25, 1.8 + progress * 0.02 + auraTier * 0.08,
+                            auraSpread * 1.25, 0.28 + auraTier * 0.012);
                     world.spawnParticle(Particle.REVERSE_PORTAL, core,
-                            120 + progress * 2, auraSpread, 1.6 + progress * 0.02,
-                            auraSpread, 0.22);
+                            (int) ((120 + progress * 2) * stagePower),
+                            auraSpread, 1.6 + progress * 0.02 + auraTier * 0.08,
+                            auraSpread, 0.22 + auraTier * 0.01);
                     world.spawnParticle(Particle.WITCH, core,
-                            90 + progress * 2, auraSpread, 1.5 + progress * 0.02,
-                            auraSpread, 0.08);
+                            (int) ((90 + progress * 2) * stagePower),
+                            auraSpread, 1.5 + progress * 0.02 + auraTier * 0.08,
+                            auraSpread, 0.08 + auraTier * 0.005);
                     world.spawnParticle(Particle.SOUL_FIRE_FLAME, core,
-                            70 + progress * 2, auraSpread * 0.8, 1.25 + progress * 0.015,
-                            auraSpread * 0.8, 0.065);
+                            (int) ((70 + progress * 2) * stagePower),
+                            auraSpread * 0.8, 1.25 + progress * 0.015 + auraTier * 0.06,
+                            auraSpread * 0.8, 0.065 + auraTier * 0.004);
+
+                    // Every unlocked tier also leaves a permanent orbiting corruption band.
+                    // Render it every four ticks to keep the effect dramatic without flooding the server.
+                    if (elapsedTicks % 4 == 0 && auraTier > 0) {
+                        for (int tier = 1; tier <= auraTier; tier++) {
+                            double bandRadius = 2.0 + tier * 0.72;
+                            double bandHeight = -0.45 + (tier % 4) * 0.62;
+                            for (int point = 0; point < 10; point++) {
+                                double bandAngle = rotation * (tier % 2 == 0 ? -1.0 : 1.0)
+                                        + Math.PI * 2.0 * point / 10.0 + tier * 0.31;
+                                Location bandPoint = at.clone().add(
+                                        Math.cos(bandAngle) * bandRadius,
+                                        bandHeight + Math.sin(bandAngle * 2.0 + elapsedTicks * 0.06) * 0.24,
+                                        Math.sin(bandAngle) * bandRadius);
+                                world.spawnParticle(Particle.REVERSE_PORTAL, bandPoint,
+                                        3 + tier, 0.10, 0.12, 0.10, 0.12 + tier * 0.008);
+                                world.spawnParticle(Particle.ELECTRIC_SPARK, bandPoint,
+                                        2 + tier / 2, 0.08, 0.12, 0.08, 0.10 + tier * 0.006);
+                            }
+                        }
+                    }
 
                     // A dark-purple-looking vertical energy column rises through the player.
                     world.spawnParticle(Particle.DRAGON_BREATH,
-                            at.clone().add(0, 3.0, 0), 45 + progress, 0.55, 2.2, 0.55, 0.035);
+                            at.clone().add(0, 3.0, 0), (int) ((45 + progress) * stagePower),
+                            0.55 + auraTier * 0.025, 2.2 + auraTier * 0.08,
+                            0.55 + auraTier * 0.025, 0.035 + auraTier * 0.004);
                     world.spawnParticle(Particle.END_ROD,
-                            at.clone().add(0, 2.2, 0), 24 + progress / 2, 0.65, 1.5, 0.65, 0.055);
+                            at.clone().add(0, 2.2, 0), (int) ((24 + progress / 2) * stagePower),
+                            0.65 + auraTier * 0.02, 1.5 + auraTier * 0.06,
+                            0.65 + auraTier * 0.02, 0.055 + auraTier * 0.004);
 
                     // Expanding ground runes pulse outward more often as power builds.
                     if (elapsedTicks % 5 == 0) {
