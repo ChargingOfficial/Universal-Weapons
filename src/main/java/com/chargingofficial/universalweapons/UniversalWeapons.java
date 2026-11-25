@@ -533,8 +533,10 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                         case "judgment_spear" -> world.playSound(center, Sound.ENTITY_LIGHTNING_BOLT_THUNDER, 1.4f, 1.25f);
                         case "storm_trident" -> world.playSound(center, Sound.ENTITY_GENERIC_SPLASH, 1.3f, 0.7f);
                         case "bloodreaver_axe" -> world.playSound(center, Sound.ENTITY_ZOGLIN_ANGRY, 1.1f, 0.55f);
-                        case "eclipse_core" -> world.playSound(center, Sound.ENTITY_ENDERMAN_TELEPORT, 1.2f, 0.55f);
-                        case "eclipse_core" -> world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.55f);
+                        case "eclipse_core" -> {
+                            world.playSound(center, Sound.ENTITY_ENDERMAN_TELEPORT, 1.2f, 0.55f);
+                            world.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 2.0f, 0.55f);
+                        }
                         default -> { }
                     }
                     player.sendTitle(ChatColor.GOLD + "" + ChatColor.BOLD + displayName + " AWAKENED",
