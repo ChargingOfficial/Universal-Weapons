@@ -578,7 +578,7 @@ public final class UniversalWeapons extends JavaPlugin implements Listener, Comm
                 // Once started, don't repeat the fragile custom-name parser every tick.
                 // The ritual only requires that the mace remains in the main hand.
                 ItemStack currentHeld = player.getInventory().getItemInMainHand();
-                if (currentHeld.getType() != Material.MACE) {
+                if (currentHeld.getType() != Material.MACE || !isRitualReady(player)) {
                     interrupt();
                     return;
                 }
